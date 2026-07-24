@@ -1,0 +1,79 @@
+{
+  "name": "pebble-bars-2",
+  "author": "julien",
+  "description": "A native Pebble Time 2 clean-room recreation of ELEQUENT's Bars watchface.",
+  "version": "0.1.2",
+  "license": "MIT",
+  "private": true,
+  "keywords": [
+    "pebble-watchface",
+    "pebble-time-2",
+    "bars",
+    "progress"
+  ],
+  "pebble": {
+    "displayName": "Bars 2",
+    "uuid": "b908a9cc-378d-46f4-b91a-8a2cc721feec",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "targetPlatforms": [
+      "emery"
+    ],
+    "capabilities": [
+      "configurable"
+    ],
+    "watchapp": {
+      "onlyShownOnCommunication": false,
+      "hiddenApp": false,
+      "watchface": true
+    },
+    "messageKeys": [
+      "SETTING_STYLE",
+      "SETTING_TEXT_PLACEMENT",
+      "SETTING_CLOCK_FORMAT",
+      "SETTING_LANGUAGE",
+      "SETTING_LEADING_ZERO",
+      "SETTING_SHOW_SECONDS",
+      "SETTING_SHOW_BATTERY",
+      "SETTING_SEAMLESS_BARS",
+      "SETTING_TEXT_OUTLINE",
+      "SETTING_ANIMATE",
+      "SETTING_VIBE_DISCONNECT",
+      "SETTING_VIBE_RECONNECT",
+      "SETTING_BACKGROUND_COLOR",
+      "SETTING_TRACK_COLOR",
+      "SETTING_HOUR_BAR_COLOR",
+      "SETTING_HOUR_TEXT_COLOR",
+      "SETTING_MINUTE_BAR_COLOR",
+      "SETTING_MINUTE_TEXT_COLOR",
+      "SETTING_MONTH_BAR_COLOR",
+      "SETTING_MONTH_TEXT_COLOR",
+      "SETTING_DATE_BAR_COLOR",
+      "SETTING_DATE_TEXT_COLOR",
+      "SETTING_DAY_BAR_COLOR",
+      "SETTING_DAY_TEXT_COLOR",
+      "SETTING_SECOND_BAR_COLOR",
+      "SETTING_SECOND_TEXT_COLOR",
+      "SETTING_BATTERY_BAR_COLOR",
+      "SETTING_BATTERY_TEXT_COLOR",
+      "SETTING_HOUR_TEXT_ON_BAR_COLOR",
+      "SETTING_MINUTE_TEXT_ON_BAR_COLOR",
+      "SETTING_MONTH_TEXT_ON_BAR_COLOR",
+      "SETTING_DATE_TEXT_ON_BAR_COLOR",
+      "SETTING_DAY_TEXT_ON_BAR_COLOR",
+      "SETTING_SECOND_TEXT_ON_BAR_COLOR",
+      "SETTING_BATTERY_TEXT_ON_BAR_COLOR"
+    ],
+    "resources": {
+      "media": [
+        {
+          "file": "images/menu_icon.png",
+          "menuIcon": true,
+          "name": "MENU_ICON",
+          "type": "bitmap"
+        }
+      ]
+    }
+  },
+  "dependencies": {}
+}

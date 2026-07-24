@@ -1,0 +1,19 @@
+# Pebble/waf build output
+.waf*
+.lock-waf*
+build/
+compile_commands.json
+
+# Local SDK links
+waf
+tools
+include
+lib
+pebble_app.ld
+node_modules/
+
+# Miscellaneous
+serial_dump.txt
+pebble_screenshot_*
+.DS_Store
+._*
