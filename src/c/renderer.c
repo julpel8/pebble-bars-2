@@ -30,8 +30,9 @@ static int animated_ratio(const Series *series, int animation_progress) {
   if (series->maximum <= 0) {
     return 0;
   }
-  int ratio =
-      BARS_MAX(0, BARS_MIN(1000, series->value * 1000 / series->maximum));
+  int ratio = BARS_MAX(
+      0, BARS_MIN(1000, (int)((int64_t)series->value * 1000 /
+                              series->maximum)));
   return ratio * animation_progress / 1000;
 }
 
@@ -84,62 +85,65 @@ static int smooth_letterwise_width(const char *text, GFont font,
   return width;
 }
 
+static int utf8_glyph_count(const char *text) {
+  int count = 0;
+  size_t offset = 0;
+  while (text[offset] != '\0') {
+    offset += utf8_glyph_bytes(text + offset);
+    ++count;
+  }
+  return count;
+}
+
+static void copy_utf8_glyphs(const char *source, char *destination,
+                             size_t destination_size, int max_glyphs) {
+  size_t source_offset = 0;
+  size_t destination_offset = 0;
+  int glyph_count = 0;
+  while (source[source_offset] != '\0' && glyph_count < max_glyphs) {
+    size_t bytes = utf8_glyph_bytes(source + source_offset);
+    if (destination_offset + bytes >= destination_size) {
+      break;
+    }
+    memcpy(destination + destination_offset, source + source_offset, bytes);
+    source_offset += bytes;
+    destination_offset += bytes;
+    ++glyph_count;
+  }
+  destination[destination_offset] = '\0';
+}
+
+static int condensed_letter_spacing(const char *text, GFont font,
+                                    int line_height, int max_width) {
+  int glyph_count = utf8_glyph_count(text);
+  int natural_width = smooth_letterwise_width(text, font, line_height);
+  if (glyph_count < 2 || natural_width <= max_width) {
+    return 0;
+  }
+  int gaps = glyph_count - 1;
+  return -((natural_width - max_width + gaps - 1) / gaps);
+}
+
+static int smooth_spaced_width(const char *text, GFont font, int line_height,
+                               int letter_spacing) {
+  int glyph_count = utf8_glyph_count(text);
+  return smooth_letterwise_width(text, font, line_height) +
+         BARS_MAX(0, glyph_count - 1) * letter_spacing;
+}
+
 static SmoothFontSpec smooth_font_for_series(const Series *series,
                                              int max_width,
-                                             int max_visible_height,
-                                             bool horizontal) {
-  static const SmoothFontCandidate numeric_fonts[] = {
+                                             int max_visible_height) {
+  static const SmoothFontCandidate leco_fonts[] = {
       {FONT_KEY_LECO_42_NUMBERS, 42, 29, 13},
       {FONT_KEY_LECO_38_BOLD_NUMBERS, 38, 27, 11},
       {FONT_KEY_LECO_36_BOLD_NUMBERS, 36, 25, 11},
       {FONT_KEY_LECO_32_BOLD_NUMBERS, 32, 22, 10},
       {FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM, 26, 18, 8},
-      {FONT_KEY_LECO_20_BOLD_NUMBERS, 20, 14, 6},
-      {FONT_KEY_GOTHIC_28_BOLD, 28, 18, 10},
-      {FONT_KEY_GOTHIC_24_BOLD, 24, 14, 10},
-      {FONT_KEY_GOTHIC_18_BOLD, 18, 11, 7},
-      {FONT_KEY_GOTHIC_14_BOLD, 14, 8, 6}};
-  static const SmoothFontCandidate battery_fonts[] = {
-      {FONT_KEY_LECO_36_BOLD_NUMBERS, 36, 25, 11},
-      {FONT_KEY_LECO_32_BOLD_NUMBERS, 32, 22, 10},
-      {FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM, 26, 18, 8},
-      {FONT_KEY_LECO_20_BOLD_NUMBERS, 20, 14, 6},
-      {FONT_KEY_GOTHIC_28_BOLD, 28, 18, 10},
-      {FONT_KEY_GOTHIC_24_BOLD, 24, 14, 10},
-      {FONT_KEY_GOTHIC_18_BOLD, 18, 11, 7},
-      {FONT_KEY_GOTHIC_14_BOLD, 14, 8, 6}};
-  static const SmoothFontCandidate label_fonts[] = {
-      {FONT_KEY_GOTHIC_28_BOLD, 28, 18, 10},
-      {FONT_KEY_GOTHIC_24_BOLD, 24, 14, 10},
-      {FONT_KEY_GOTHIC_18_BOLD, 18, 11, 7},
-      {FONT_KEY_GOTHIC_14_BOLD, 14, 8, 6}};
-  static const SmoothFontCandidate horizontal_label_fonts[] = {
-      {FONT_KEY_LECO_42_NUMBERS, 42, 29, 13},
-      {FONT_KEY_LECO_38_BOLD_NUMBERS, 38, 27, 11},
-      {FONT_KEY_LECO_36_BOLD_NUMBERS, 36, 25, 11},
-      {FONT_KEY_LECO_32_BOLD_NUMBERS, 32, 22, 10},
-      {FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM, 26, 18, 8},
-      {FONT_KEY_LECO_20_BOLD_NUMBERS, 20, 14, 6},
-      {FONT_KEY_GOTHIC_28_BOLD, 28, 18, 10},
-      {FONT_KEY_GOTHIC_24_BOLD, 24, 14, 10},
-      {FONT_KEY_GOTHIC_18_BOLD, 18, 11, 7},
-      {FONT_KEY_GOTHIC_14_BOLD, 14, 8, 6}};
+      {FONT_KEY_LECO_20_BOLD_NUMBERS, 20, 14, 6}};
 
-  const SmoothFontCandidate *fonts = numeric_fonts;
-  int font_count = (int)(sizeof(numeric_fonts) / sizeof(numeric_fonts[0]));
-  if (series->id == SERIES_MONTH || series->id == SERIES_DAY) {
-    if (horizontal) {
-      fonts = horizontal_label_fonts;
-      font_count = (int)(sizeof(horizontal_label_fonts) /
-                         sizeof(horizontal_label_fonts[0]));
-    } else {
-      fonts = label_fonts;
-      font_count = (int)(sizeof(label_fonts) / sizeof(label_fonts[0]));
-    }
-  } else if (series->id == SERIES_BATTERY) {
-    fonts = battery_fonts;
-    font_count = (int)(sizeof(battery_fonts) / sizeof(battery_fonts[0]));
-  }
+  const SmoothFontCandidate *fonts = leco_fonts;
+  int font_count = (int)(sizeof(leco_fonts) / sizeof(leco_fonts[0]));
 
   SmoothFontSpec fallback = {
       .font = fonts_get_system_font(fonts[font_count - 1].key),
@@ -201,7 +205,7 @@ static void draw_smooth_fill_label(
 static void draw_smooth_text_letterwise(
     GContext *ctx, const char *text, GFont font, GRect frame, int visible_y,
     int visible_height, GColor track_color, GColor bar_color, GRect bar_clip,
-    bool outlined) {
+    bool outlined, int letter_spacing) {
   int glyph_x = frame.origin.x;
   size_t offset = 0;
   while (text[offset] != '\0') {
@@ -222,9 +226,31 @@ static void draw_smooth_text_letterwise(
                        GTextAlignmentLeft);
     }
 
-    glyph_x += glyph_width;
+    glyph_x += glyph_width + letter_spacing;
     offset += bytes;
   }
+}
+
+static void draw_small_percent_glyph(GContext *ctx, int x, int y,
+                                     GColor color) {
+  graphics_context_set_fill_color(ctx, color);
+  graphics_fill_rect(ctx, GRect(x, y, 2, 2), 0, GCornerNone);
+  graphics_fill_rect(ctx, GRect(x + 3, y + 5, 2, 2), 0, GCornerNone);
+  graphics_context_set_stroke_color(ctx, color);
+  graphics_draw_line(ctx, GPoint(x + 4, y), GPoint(x, y + 6));
+}
+
+static void draw_small_percent(GContext *ctx, int x, int y, GColor color,
+                               bool outlined) {
+  if (outlined) {
+    static const int dx[4] = {-1, 1, 0, 0};
+    static const int dy[4] = {0, 0, -1, 1};
+    for (int index = 0; index < 4; ++index) {
+      draw_small_percent_glyph(ctx, x + dx[index], y + dy[index],
+                               GColorBlack);
+    }
+  }
+  draw_small_percent_glyph(ctx, x, y, color);
 }
 
 static int placement_lead(uint8_t placement, int lo, int hi, int fill_lo,
@@ -233,8 +259,15 @@ static int placement_lead(uint8_t placement, int lo, int hi, int fill_lo,
   int fill_edge = origin_at_lo ? fill_hi : fill_lo;
   int lead;
   switch (placement) {
-    case TEXT_PLACE_OUTSIDE_OPPOSITE:
+    case TEXT_PLACE_OUTSIDE_END:
       lead = origin_at_lo ? (hi - text_len - gap) : (lo + gap);
+      break;
+    case TEXT_PLACE_OUTSIDE_MIDDLE:
+      lead = origin_at_lo ? (fill_hi + hi) / 2 - text_len / 2
+                          : (lo + fill_lo) / 2 - text_len / 2;
+      break;
+    case TEXT_PLACE_ALWAYS_MIDDLE:
+      lead = (lo + hi) / 2 - text_len / 2;
       break;
     case TEXT_PLACE_INSIDE_START:
       lead = origin_at_lo ? (lo + gap) : (hi - text_len - gap);
@@ -245,7 +278,7 @@ static int placement_lead(uint8_t placement, int lo, int hi, int fill_lo,
     case TEXT_PLACE_INSIDE_END:
       lead = origin_at_lo ? (fill_edge - gap - text_len) : (fill_edge + gap);
       break;
-    case TEXT_PLACE_OUTSIDE_EDGE:
+    case TEXT_PLACE_OUTSIDE_START:
     default:
       lead = origin_at_lo ? (fill_edge + gap) : (fill_edge - gap - text_len);
       break;
@@ -263,17 +296,17 @@ static void draw_horizontal(GContext *ctx, GRect bounds, const Series *series,
                             int count, bool inverted,
                             const Settings *settings,
                             int animation_progress) {
-  int group_height = BARS_MIN(bounds.size.h - 12, count * 32);
-  int row_height = BARS_MAX(14, group_height / count);
-  group_height = row_height * count;
-  int top = bounds.origin.y + (bounds.size.h - group_height) / 2;
   int right = bounds.origin.x + bounds.size.w;
-  int bar_height =
-      settings->seamless ? row_height : BARS_MAX(4, row_height - 2);
 
   for (int index = 0; index < count; ++index) {
     const Series *item = &series[index];
-    int row_y = top + index * row_height;
+    int row_y =
+        bounds.origin.y + bounds.size.h * index / count;
+    int next_row_y =
+        bounds.origin.y + bounds.size.h * (index + 1) / count;
+    int row_height = next_row_y - row_y;
+    int bar_height =
+        settings->seamless ? row_height : BARS_MAX(4, row_height - 2);
     GRect track = GRect(bounds.origin.x, row_y, bounds.size.w, bar_height);
     graphics_context_set_fill_color(ctx, settings->track_color);
     graphics_fill_rect(ctx, track, 0, GCornerNone);
@@ -288,7 +321,7 @@ static void draw_horizontal(GContext *ctx, GRect bounds, const Series *series,
 
     GRect bar_clip = GRect(fill_x, row_y, fill_width, bar_height);
     SmoothFontSpec font_spec =
-        smooth_font_for_series(item, bounds.size.w - 4, bar_height + 1, true);
+        smooth_font_for_series(item, bounds.size.w - 4, bar_height + 1);
     int text_width = smooth_letterwise_width(
         item->label, font_spec.font, font_spec.line_height);
     int text_height = font_spec.visible_height;
@@ -302,21 +335,67 @@ static void draw_horizontal(GContext *ctx, GRect bounds, const Series *series,
     draw_smooth_text_letterwise(
         ctx, item->label, font_spec.font, frame, visible_y, text_height,
         item->text_color, item->text_on_bar_color, bar_clip,
-        settings->text_outline);
+        settings->text_outline, 0);
   }
+}
+
+static void draw_vertical_battery_label(
+    GContext *ctx, const Series *item, SmoothFontSpec font_spec, int column_x,
+    int column_width, int visible_y, int text_height, GRect bar_clip,
+    bool outlined) {
+  const char *percent = strchr(item->label, '%');
+  if (!percent) {
+    return;
+  }
+
+  char digits[MAX_LABEL_BYTES] = {0};
+  size_t digit_bytes = (size_t)(percent - item->label);
+  digit_bytes = BARS_MIN(digit_bytes, sizeof(digits) - 1);
+  memcpy(digits, item->label, digit_bytes);
+
+  const int percent_width = 5;
+  const int percent_height = 7;
+  const int gap = 1;
+  int content_width = BARS_MAX(1, column_width - 2);
+  int digit_max_width = BARS_MAX(1, content_width - gap - percent_width);
+  int letter_spacing = condensed_letter_spacing(
+      digits, font_spec.font, font_spec.line_height, digit_max_width);
+  int digit_width = smooth_spaced_width(
+      digits, font_spec.font, font_spec.line_height, letter_spacing);
+  int total_width = digit_width + gap + percent_width;
+  int text_x = column_x + (column_width - total_width) / 2;
+  GRect frame =
+      GRect(text_x, visible_y - font_spec.top_offset, digit_width + 3,
+            font_spec.line_height + 2);
+  draw_smooth_text_letterwise(
+      ctx, digits, font_spec.font, frame, visible_y, text_height,
+      item->text_color, item->text_on_bar_color, bar_clip, outlined,
+      letter_spacing);
+
+  int percent_x = text_x + digit_width + gap;
+  int percent_y = visible_y + (text_height - percent_height) / 2;
+  GRect percent_rect =
+      GRect(percent_x, percent_y, percent_width, percent_height);
+  GColor percent_color = rects_intersect(percent_rect, bar_clip)
+                             ? item->text_on_bar_color
+                             : item->text_color;
+  draw_small_percent(ctx, percent_x, percent_y, percent_color, outlined);
 }
 
 static void draw_vertical(GContext *ctx, GRect bounds, const Series *series,
                           int count, bool inverted, const Settings *settings,
                           int animation_progress) {
-  int column_width = bounds.size.w / count;
-  int top = bounds.origin.y + 6;
-  int bottom = bounds.origin.y + bounds.size.h - 6;
+  int top = bounds.origin.y;
+  int bottom = bounds.origin.y + bounds.size.h;
   int available_height = bottom - top;
 
   for (int index = 0; index < count; ++index) {
     const Series *item = &series[index];
-    int column_x = bounds.origin.x + index * column_width;
+    int column_x =
+        bounds.origin.x + bounds.size.w * index / count;
+    int next_column_x =
+        bounds.origin.x + bounds.size.w * (index + 1) / count;
+    int column_width = next_column_x - column_x;
     int bar_width =
         settings->seamless ? column_width : BARS_MAX(3, column_width - 2);
     GRect track = GRect(column_x, top, bar_width, available_height);
@@ -333,25 +412,46 @@ static void draw_vertical(GContext *ctx, GRect bounds, const Series *series,
                        GCornerNone);
 
     GRect bar_clip = GRect(column_x, fill_y, bar_width, fill_height);
-    bool is_numeric = item->id != SERIES_MONTH && item->id != SERIES_DAY;
-    int max_text_width =
-        is_numeric ? column_width : BARS_MAX(1, bar_width - 2);
+    int max_text_width = BARS_MAX(1, column_width - 2);
+    Series display_item = *item;
     SmoothFontSpec font_spec =
-        smooth_font_for_series(item, max_text_width, 29, false);
+        smooth_font_for_series(&display_item, max_text_width, 29);
+    bool is_date_label =
+        item->id == SERIES_MONTH || item->id == SERIES_DAY;
+    int full_label_width =
+        smooth_letterwise_width(item->label, font_spec.font,
+                                font_spec.line_height);
+    if (is_date_label && full_label_width > max_text_width && count > 5) {
+      copy_utf8_glyphs(item->label, display_item.label,
+                       sizeof(display_item.label), 2);
+      font_spec =
+          smooth_font_for_series(&display_item, max_text_width, 29);
+    }
+    const char *display_label = display_item.label;
     int text_height = font_spec.visible_height;
     int visible_y =
         placement_lead(settings->text_placement, top, bottom, fill_y,
                        fill_y + fill_height, inverted, text_height, 2);
+    if (item->id == SERIES_BATTERY) {
+      draw_vertical_battery_label(
+          ctx, item, font_spec, column_x, column_width, visible_y, text_height,
+          bar_clip, settings->text_outline);
+      continue;
+    }
+    int letter_spacing = condensed_letter_spacing(
+        display_label, font_spec.font, font_spec.line_height, max_text_width);
     int text_width = smooth_letterwise_width(
-        item->label, font_spec.font, font_spec.line_height);
+        display_label, font_spec.font, font_spec.line_height);
+    text_width += BARS_MAX(0, utf8_glyph_count(display_label) - 1) *
+                  letter_spacing;
     GRect frame =
         GRect(column_x + (column_width - text_width) / 2,
               visible_y - font_spec.top_offset, text_width + 3,
               font_spec.line_height + 2);
     draw_smooth_text_letterwise(
-        ctx, item->label, font_spec.font, frame, visible_y, text_height,
+        ctx, display_label, font_spec.font, frame, visible_y, text_height,
         item->text_color, item->text_on_bar_color, bar_clip,
-        settings->text_outline);
+        settings->text_outline, letter_spacing);
   }
 }
 

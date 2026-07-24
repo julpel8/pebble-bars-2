@@ -14,6 +14,8 @@ typedef enum {
 // Language indices intentionally match Solar Earth.
 extern const char day_names[LANGUAGE_COUNT][7][8];
 extern const char month_names[LANGUAGE_COUNT][12][8];
+extern const char *const full_day_names[LANGUAGE_COUNT][7];
+extern const char *const full_month_names[LANGUAGE_COUNT][12];
 
 // The natural order of weekday, day-of-month and month for each language.
 extern const uint8_t date_part_order[LANGUAGE_COUNT][3];

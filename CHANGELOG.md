@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.2.0] - 2026-07-24
+
+### Added
+
+- Configurable clock refresh every 1, 5, 10, 20, 30, or 60 seconds.
+- Smooth continuous or exact whole-unit bar progress.
+- Start, middle, and end text alignment for both inside and outside placement.
+- Fixed centre placement, independent of each bar's fill level.
+- Optional full weekday and month names in horizontal layouts.
+- Optional Sunday-first weekday progress (Monday remains the default).
+
+### Changed
+
+- Extended Solar Earth-style typography and adaptive sizing to vertical layouts.
+- Updated the default placement, colours, leading zero, outline, and progress
+  settings.
+- Displayed the optional seconds bar directly after minutes.
+
 ## [0.1.2] - 2026-07-24
 
 ### Added

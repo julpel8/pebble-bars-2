@@ -10,15 +10,20 @@ progress bars.
 - Horizontal, inverted horizontal, vertical, and inverted vertical layouts
 - Optional launch animation
 - Optional seconds and battery bars
+- Configurable clock refresh every 1, 5, 10, 20, 30, or 60 seconds
+- Smooth continuous or exact whole-unit bar progress
 - System, 24-hour, and 12-hour clock formats
 - Localized weekday/month labels in the same 38 languages as Solar Earth,
   including the natural date-bar order for each language
-- Solar Earth-style LECO numbers and date labels in horizontal layouts, with
-  adaptive Gothic Bold fallbacks for tighter layouts
+- Optional full weekday and month names in horizontal layouts
+- Configurable Monday- or Sunday-first weekday progress
+- Solar Earth-style LECO numbers and date labels in horizontal and vertical
+  layouts, with adaptive sizing for tighter layouts
 - Bluetooth disconnect/reconnect vibration settings
 - Quick View-aware layout
-- Configurable label placement (horizontal/vertical): outside at the opposite
-  end or following the bar edge, or inside the fill at its start, middle, or end
+- Configurable label placement (horizontal/vertical): at the start, middle, or
+  end of either the filled (inside) or unfilled (outside) part of each bar, or
+  always fixed at the centre of the complete bar
 - Two text colours per series — each glyph switches from the empty-track colour
   to the filled-bar colour as the bar reaches it (with an optional black
   outline for legibility)

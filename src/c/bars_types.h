@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 #define MAX_SERIES 7
-#define MAX_LABEL_BYTES 8
+#define MAX_LABEL_BYTES 32
 
 typedef enum {
   STYLE_HORIZONTAL = 0,
@@ -15,11 +15,15 @@ typedef enum {
 } BarStyle;
 
 typedef enum {
-  TEXT_PLACE_OUTSIDE_OPPOSITE = 0,
-  TEXT_PLACE_OUTSIDE_EDGE,
+  // Keep the existing outside values stable so saved settings retain their
+  // original visual meaning after adding the middle option.
+  TEXT_PLACE_OUTSIDE_END = 0,
+  TEXT_PLACE_OUTSIDE_START,
   TEXT_PLACE_INSIDE_START,
   TEXT_PLACE_INSIDE_MIDDLE,
   TEXT_PLACE_INSIDE_END,
+  TEXT_PLACE_OUTSIDE_MIDDLE,
+  TEXT_PLACE_ALWAYS_MIDDLE,
   TEXT_PLACE_COUNT
 } TextPlacement;
 
@@ -45,9 +49,13 @@ typedef struct {
   uint8_t text_placement;
   uint8_t clock_format;
   uint8_t language;
+  uint8_t clock_refresh_seconds;
   bool leading_zero;
   bool show_seconds;
   bool show_battery;
+  bool smooth_progress;
+  bool full_date_names;
+  bool week_starts_sunday;
   bool seamless;
   bool text_outline;
   bool animate;

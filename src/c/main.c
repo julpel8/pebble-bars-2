@@ -62,13 +62,17 @@ static void start_animation(void) {
 }
 
 static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
-  mark_canvas_dirty();
+  if (s_settings.clock_refresh_seconds >= 60 ||
+      tick_time->tm_sec % s_settings.clock_refresh_seconds == 0) {
+    mark_canvas_dirty();
+  }
 }
 
 static void update_tick_subscription(void) {
   tick_timer_service_unsubscribe();
   tick_timer_service_subscribe(
-      s_settings.show_seconds ? SECOND_UNIT : MINUTE_UNIT, tick_handler);
+      s_settings.clock_refresh_seconds < 60 ? SECOND_UNIT : MINUTE_UNIT,
+      tick_handler);
 }
 
 static void battery_handler(BatteryChargeState state) {

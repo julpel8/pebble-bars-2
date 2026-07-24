@@ -38,7 +38,11 @@ enum {
   PERSIST_BATTERY_TEXT_ON_BAR_COLOR,
   PERSIST_SEAMLESS,
   PERSIST_TEXT_OUTLINE,
-  PERSIST_LANGUAGE
+  PERSIST_LANGUAGE,
+  PERSIST_CLOCK_REFRESH,
+  PERSIST_SMOOTH_PROGRESS,
+  PERSIST_FULL_DATE_NAMES,
+  PERSIST_WEEK_STARTS_SUNDAY
 };
 
 static const int s_bar_persist_keys[MAX_SERIES] = {
@@ -67,6 +71,20 @@ static int clamp_int(int value, int minimum, int maximum) {
     return maximum;
   }
   return value;
+}
+
+static uint8_t valid_clock_refresh(int value) {
+  switch (value) {
+    case 1:
+    case 5:
+    case 10:
+    case 20:
+    case 30:
+    case 60:
+      return value;
+    default:
+      return 60;
+  }
 }
 
 static GColor color_from_persist(int key, GColor fallback) {
@@ -136,14 +154,18 @@ static uint32_t text_on_bar_message_key(int index) {
 static void settings_set_defaults(Settings *settings) {
   *settings = (Settings){
       .style = STYLE_HORIZONTAL,
-      .text_placement = TEXT_PLACE_OUTSIDE_EDGE,
+      .text_placement = TEXT_PLACE_INSIDE_START,
       .clock_format = CLOCK_FORMAT_SYSTEM,
       .language = LANGUAGE_EN,
-      .leading_zero = false,
+      .clock_refresh_seconds = 60,
+      .leading_zero = true,
       .show_seconds = false,
       .show_battery = false,
+      .smooth_progress = true,
+      .full_date_names = false,
+      .week_starts_sunday = false,
       .seamless = true,
-      .text_outline = true,
+      .text_outline = false,
       .animate = true,
       .vibe_disconnect = true,
       .vibe_reconnect = false,
@@ -157,12 +179,12 @@ static void settings_set_defaults(Settings *settings) {
               GColorFromHEX(0xFFFF00),
               GColorFromHEX(0xFF0000),
               GColorFromHEX(0xAA00FF),
-              GColorFromHEX(0x00FFFF),
+              GColorWhite,
           },
       .text_colors =
           {
-              GColorFromHEX(0xAAFF00),
               GColorFromHEX(0x00FF00),
+              GColorFromHEX(0x00AA55),
               GColorFromHEX(0x0055FF),
               GColorFromHEX(0xFFFF00),
               GColorFromHEX(0xFF0000),
@@ -171,8 +193,13 @@ static void settings_set_defaults(Settings *settings) {
           },
       .text_on_bar_colors =
           {
-              GColorWhite, GColorWhite, GColorWhite, GColorWhite,
-              GColorWhite, GColorWhite, GColorWhite,
+              GColorFromHEX(0xAAFFAA),
+              GColorFromHEX(0x55FFFF),
+              GColorFromHEX(0x55AAFF),
+              GColorFromHEX(0x555500),
+              GColorFromHEX(0xFFAAAA),
+              GColorFromHEX(0xFFAAFF),
+              GColorWhite,
           }};
 }
 
@@ -198,6 +225,10 @@ void settings_load(Settings *settings) {
     settings->language =
         clamp_int(persist_read_int(PERSIST_LANGUAGE), 0, LANGUAGE_COUNT - 1);
   }
+  if (persist_exists(PERSIST_CLOCK_REFRESH)) {
+    settings->clock_refresh_seconds =
+        valid_clock_refresh(persist_read_int(PERSIST_CLOCK_REFRESH));
+  }
   if (persist_exists(PERSIST_LEADING_ZERO)) {
     settings->leading_zero = persist_read_bool(PERSIST_LEADING_ZERO);
   }
@@ -206,6 +237,16 @@ void settings_load(Settings *settings) {
   }
   if (persist_exists(PERSIST_SHOW_BATTERY)) {
     settings->show_battery = persist_read_bool(PERSIST_SHOW_BATTERY);
+  }
+  if (persist_exists(PERSIST_SMOOTH_PROGRESS)) {
+    settings->smooth_progress = persist_read_bool(PERSIST_SMOOTH_PROGRESS);
+  }
+  if (persist_exists(PERSIST_FULL_DATE_NAMES)) {
+    settings->full_date_names = persist_read_bool(PERSIST_FULL_DATE_NAMES);
+  }
+  if (persist_exists(PERSIST_WEEK_STARTS_SUNDAY)) {
+    settings->week_starts_sunday =
+        persist_read_bool(PERSIST_WEEK_STARTS_SUNDAY);
   }
   if (persist_exists(PERSIST_SEAMLESS)) {
     settings->seamless = persist_read_bool(PERSIST_SEAMLESS);
@@ -246,9 +287,14 @@ void settings_save(const Settings *settings) {
   persist_write_int(PERSIST_TEXT_PLACEMENT, settings->text_placement);
   persist_write_int(PERSIST_CLOCK_FORMAT, settings->clock_format);
   persist_write_int(PERSIST_LANGUAGE, settings->language);
+  persist_write_int(PERSIST_CLOCK_REFRESH, settings->clock_refresh_seconds);
   persist_write_bool(PERSIST_LEADING_ZERO, settings->leading_zero);
   persist_write_bool(PERSIST_SHOW_SECONDS, settings->show_seconds);
   persist_write_bool(PERSIST_SHOW_BATTERY, settings->show_battery);
+  persist_write_bool(PERSIST_SMOOTH_PROGRESS, settings->smooth_progress);
+  persist_write_bool(PERSIST_FULL_DATE_NAMES, settings->full_date_names);
+  persist_write_bool(PERSIST_WEEK_STARTS_SUNDAY,
+                     settings->week_starts_sunday);
   persist_write_bool(PERSIST_SEAMLESS, settings->seamless);
   persist_write_bool(PERSIST_TEXT_OUTLINE, settings->text_outline);
   persist_write_bool(PERSIST_ANIMATE, settings->animate);
@@ -309,12 +355,24 @@ void settings_apply_message(Settings *settings, DictionaryIterator *iterator) {
         clamp_int(tuple->value->int32, 0, LANGUAGE_COUNT - 1);
   }
 
+  tuple = dict_find(iterator, MESSAGE_KEY_SETTING_CLOCK_REFRESH);
+  if (tuple) {
+    settings->clock_refresh_seconds =
+        valid_clock_refresh(tuple->value->int32);
+  }
+
   apply_bool_tuple(iterator, MESSAGE_KEY_SETTING_LEADING_ZERO,
                    &settings->leading_zero);
   apply_bool_tuple(iterator, MESSAGE_KEY_SETTING_SHOW_SECONDS,
                    &settings->show_seconds);
   apply_bool_tuple(iterator, MESSAGE_KEY_SETTING_SHOW_BATTERY,
                    &settings->show_battery);
+  apply_bool_tuple(iterator, MESSAGE_KEY_SETTING_SMOOTH_PROGRESS,
+                   &settings->smooth_progress);
+  apply_bool_tuple(iterator, MESSAGE_KEY_SETTING_FULL_DATE_NAMES,
+                   &settings->full_date_names);
+  apply_bool_tuple(iterator, MESSAGE_KEY_SETTING_WEEK_STARTS_SUNDAY,
+                   &settings->week_starts_sunday);
   apply_bool_tuple(iterator, MESSAGE_KEY_SETTING_SEAMLESS_BARS,
                    &settings->seamless);
   apply_bool_tuple(iterator, MESSAGE_KEY_SETTING_TEXT_OUTLINE,
