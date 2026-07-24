@@ -142,7 +142,7 @@ static void settings_set_defaults(Settings *settings) {
       .leading_zero = false,
       .show_seconds = false,
       .show_battery = false,
-      .seamless = false,
+      .seamless = true,
       .text_outline = true,
       .animate = true,
       .vibe_disconnect = true,
