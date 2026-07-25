@@ -195,23 +195,21 @@ static SmoothFontSpec smooth_font_for_series(const Series *series,
 }
 
 static void draw_smooth_text(GContext *ctx, const char *text, GFont font,
-                             GRect frame, GColor color,
-                             GTextAlignment alignment) {
+                             GRect frame, GColor color) {
   graphics_context_set_text_color(ctx, color);
   graphics_draw_text(ctx, text, font, frame, GTextOverflowModeTrailingEllipsis,
-                     alignment, NULL);
+                     GTextAlignmentLeft, NULL);
 }
 
 static void draw_smooth_text_outline(GContext *ctx, const char *text,
-                                     GFont font, GRect frame,
-                                     GTextAlignment alignment) {
+                                     GFont font, GRect frame) {
   static const int dx[8] = {-1, 1, 0, 0, -1, -1, 1, 1};
   static const int dy[8] = {0, 0, -1, 1, -1, 1, -1, 1};
   for (int index = 0; index < 8; ++index) {
     GRect outline_frame = frame;
     outline_frame.origin.x += dx[index];
     outline_frame.origin.y += dy[index];
-    draw_smooth_text(ctx, text, font, outline_frame, GColorBlack, alignment);
+    draw_smooth_text(ctx, text, font, outline_frame, GColorBlack);
   }
 }
 
@@ -232,11 +230,9 @@ static void draw_smooth_text_letterwise(
       GRect glyph_frame =
           GRect(glyph_x, frame.origin.y, glyph_width + 3, frame.size.h);
       if (pass == 0) {
-        draw_smooth_text_outline(ctx, glyph, font, glyph_frame,
-                                 GTextAlignmentLeft);
+        draw_smooth_text_outline(ctx, glyph, font, glyph_frame);
       } else {
-        draw_smooth_text(ctx, glyph, font, glyph_frame, color,
-                         GTextAlignmentLeft);
+        draw_smooth_text(ctx, glyph, font, glyph_frame, color);
       }
 
       glyph_x += glyph_width + letter_spacing;

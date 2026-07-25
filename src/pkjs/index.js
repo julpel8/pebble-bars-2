@@ -354,9 +354,9 @@ function configurationHtml(settings) {
     'border-radius:12px;overflow:hidden}',
     'h2{font-size:13px;letter-spacing:1.2px;text-transform:uppercase;',
     'color:#8d929a;margin:0;padding:13px 15px;background:#15171a}',
-    '.row,.color-row{min-height:52px;padding:10px 15px;display:flex;',
+    '.row{min-height:52px;padding:10px 15px;display:flex;',
     'align-items:center;justify-content:space-between;border-top:1px solid #2a2d32;gap:16px}',
-    'h2+.row,h2+.color-row{border-top:0}.row span,.color-row span{line-height:1.2}',
+    'h2+.row{border-top:0}.row span{line-height:1.2}',
     'select{max-width:55%;background:#26292e;color:#fff;border:1px solid #444850;',
     'border-radius:7px;padding:8px;font-size:15px}',
     '.row.disabled{opacity:.45}.row.disabled select{cursor:not-allowed}',
@@ -623,7 +623,7 @@ function configurationHtml(settings) {
     'var btn=document.createElement("button");btn.type="button";btn.className="swatch-btn";',
     'btn.style.background="#"+hex(colors[key]);',
     'var g=document.createElement("div");g.className="swatches collapsed";',
-    // Sixty-four swatches across fifty-six pickers is far too much markup to
+    // Sixty-four swatches across thirty-four pickers is far too much markup to
     // build up front, so a grid is filled the first time it opens.
     'var filled=false;',
     'function fill(){PEBBLE_COLORS.forEach(function(c){',

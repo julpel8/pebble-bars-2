@@ -89,7 +89,8 @@ static void battery_handler(BatteryChargeState state) {
 
 #if defined(PBL_HEALTH)
 static void health_handler(HealthEventType event, void *context) {
-  if (event != HealthEventMovementUpdate) {
+  if (event != HealthEventMovementUpdate &&
+      event != HealthEventSignificantUpdate) {
     return;
   }
   series_invalidate_steps();
@@ -159,9 +160,8 @@ static void init(void) {
 
   app_message_register_inbox_received(inbox_received_handler);
   app_message_register_inbox_dropped(inbox_dropped_handler);
-  // Every setting arrives in one message, and there are three colours for
-  // each of eleven bars: 1024 bytes no longer covers it.
-  app_message_open(2048, 128);
+  // The complete settings dictionary stays below 700 bytes.
+  app_message_open(1024, 128);
 }
 
 static void deinit(void) {

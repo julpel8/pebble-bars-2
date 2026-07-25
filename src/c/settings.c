@@ -193,17 +193,13 @@ static bool apply_legacy_series_order(uint32_t packed,
 }
 
 // An empty mask would leave a blank watchface, so it is rejected outright.
-static void apply_bool_mask(uint32_t mask, bool values[MAX_SERIES]) {
-  for (int index = 0; index < MAX_SERIES; ++index) {
-    values[index] = (mask & (1u << index)) != 0;
-  }
-}
-
 static bool apply_visible_mask(uint32_t mask, bool visible[MAX_SERIES]) {
   if ((mask & ((1u << MAX_SERIES) - 1)) == 0) {
     return false;
   }
-  apply_bool_mask(mask, visible);
+  for (int index = 0; index < MAX_SERIES; ++index) {
+    visible[index] = (mask & (1u << index)) != 0;
+  }
   return true;
 }
 

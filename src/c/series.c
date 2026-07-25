@@ -164,7 +164,8 @@ static int steps_today(void) {
   HealthServiceAccessibilityMask access = health_service_metric_accessible(
       HealthMetricStepCount, time_start_of_today(), time(NULL));
   if (access & HealthServiceAccessibilityMaskAvailable) {
-    s_steps = (int)health_service_sum_today(HealthMetricStepCount);
+    HealthValue value = health_service_sum_today(HealthMetricStepCount);
+    s_steps = value > 0 ? (int)value : 0;
   }
 #endif
   s_steps_known = true;
@@ -176,8 +177,10 @@ static void initialize_steps(Series *series, const Settings *settings) {
   int steps = steps_today();
   int goal = settings->step_goal > 0 ? settings->step_goal : DEFAULT_STEP_GOAL;
   snprintf(label, sizeof(label), "%d", steps);
-  initialize_series(series, settings, SERIES_STEPS, steps, goal, label,
-                    "00000");
+  // Step counts vary from one to six digits. Measuring the actual label keeps
+  // it readable in both rows and narrow columns instead of always reserving
+  // the width of a five-digit placeholder.
+  initialize_series(series, settings, SERIES_STEPS, steps, goal, label, label);
 }
 
 // Fills `out` from the template, replacing {d} with the days left, {t} with the
