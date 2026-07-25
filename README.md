@@ -41,7 +41,8 @@ bars.
   always fixed at the centre of the complete bar
 - Two text colours per series — each glyph switches from the empty-track colour
   to the filled-bar colour as the bar reaches it (with an optional black
-  outline for legibility)
+  outline for legibility, applied to the whole label on both the bar and its
+  track)
 - Self-contained configuration page: no external website is required
 - Individually configurable bar, track, and text colours per bar, each track
   starting as a much darker shade of its own bar's colour

@@ -209,20 +209,17 @@ static void draw_smooth_text(GContext *ctx, const char *text, GFont font,
                      alignment, NULL);
 }
 
-static void draw_smooth_fill_label(
-    GContext *ctx, const char *text, GFont font, GRect frame, GColor color,
-    GTextAlignment alignment, bool outlined) {
-  if (outlined) {
-    static const int dx[8] = {-1, 1, 0, 0, -1, -1, 1, 1};
-    static const int dy[8] = {0, 0, -1, 1, -1, 1, -1, 1};
-    for (int index = 0; index < 8; ++index) {
-      GRect outline_frame = frame;
-      outline_frame.origin.x += dx[index];
-      outline_frame.origin.y += dy[index];
-      draw_smooth_text(ctx, text, font, outline_frame, GColorBlack, alignment);
-    }
+static void draw_smooth_text_outline(GContext *ctx, const char *text,
+                                     GFont font, GRect frame,
+                                     GTextAlignment alignment) {
+  static const int dx[8] = {-1, 1, 0, 0, -1, -1, 1, 1};
+  static const int dy[8] = {0, 0, -1, 1, -1, 1, -1, 1};
+  for (int index = 0; index < 8; ++index) {
+    GRect outline_frame = frame;
+    outline_frame.origin.x += dx[index];
+    outline_frame.origin.y += dy[index];
+    draw_smooth_text(ctx, text, font, outline_frame, GColorBlack, alignment);
   }
-  draw_smooth_text(ctx, text, font, frame, color, alignment);
 }
 
 static bool rect_intersects_any(GRect rect, const GRect *others, int count) {
@@ -241,28 +238,35 @@ static void draw_smooth_text_letterwise(
     int visible_height, GColor track_color, GColor bar_color,
     const GRect *bar_clips, int clip_count, bool outlined,
     int letter_spacing) {
-  int glyph_x = frame.origin.x;
-  size_t offset = 0;
-  while (text[offset] != '\0') {
-    size_t bytes = utf8_glyph_bytes(text + offset);
-    char glyph[5] = {0};
-    memcpy(glyph, text + offset, bytes);
+  // The outline runs as its own pass over the whole label: drawn per glyph, a
+  // neighbour's outline would land on top of an already filled glyph.
+  for (int pass = outlined ? 0 : 1; pass < 2; ++pass) {
+    int glyph_x = frame.origin.x;
+    size_t offset = 0;
+    while (text[offset] != '\0') {
+      size_t bytes = utf8_glyph_bytes(text + offset);
+      char glyph[5] = {0};
+      memcpy(glyph, text + offset, bytes);
 
-    int glyph_width = smooth_glyph_width(glyph, font, frame.size.h - 2);
-    GRect glyph_frame =
-        GRect(glyph_x, frame.origin.y, glyph_width + 3, frame.size.h);
-    GRect glyph_visible =
-        GRect(glyph_x, visible_y, glyph_width, visible_height);
-    if (rect_intersects_any(glyph_visible, bar_clips, clip_count)) {
-      draw_smooth_fill_label(ctx, glyph, font, glyph_frame, bar_color,
-                             GTextAlignmentLeft, outlined);
-    } else {
-      draw_smooth_text(ctx, glyph, font, glyph_frame, track_color,
-                       GTextAlignmentLeft);
+      int glyph_width = smooth_glyph_width(glyph, font, frame.size.h - 2);
+      GRect glyph_frame =
+          GRect(glyph_x, frame.origin.y, glyph_width + 3, frame.size.h);
+      if (pass == 0) {
+        draw_smooth_text_outline(ctx, glyph, font, glyph_frame,
+                                 GTextAlignmentLeft);
+      } else {
+        GRect glyph_visible =
+            GRect(glyph_x, visible_y, glyph_width, visible_height);
+        GColor color = rect_intersects_any(glyph_visible, bar_clips, clip_count)
+                           ? bar_color
+                           : track_color;
+        draw_smooth_text(ctx, glyph, font, glyph_frame, color,
+                         GTextAlignmentLeft);
+      }
+
+      glyph_x += glyph_width + letter_spacing;
+      offset += bytes;
     }
-
-    glyph_x += glyph_width + letter_spacing;
-    offset += bytes;
   }
 }
 

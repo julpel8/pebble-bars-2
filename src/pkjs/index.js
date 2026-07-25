@@ -480,6 +480,8 @@ function configurationHtml(settings) {
       + 'its complete bar.</p>',
     '<label class="row"><span>Black text outline</span>',
     '<input type="checkbox" data-key="SETTING_TEXT_OUTLINE"></label>',
+    '<p class="hint">Outlines the whole label, over the filled bar and over '
+      + 'its track alike.</p>',
     '<label class="row"><span>Seamless bars (no gaps)</span>',
     '<input type="checkbox" data-key="SETTING_SEAMLESS_BARS"></label>',
     '<label class="row"><span>Launch animation</span>',
