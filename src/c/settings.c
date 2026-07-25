@@ -14,10 +14,11 @@ enum {
   PERSIST_LEGACY_SHOW_BATTERY,
   // Key 105 belonged to a retired setting. Keep later IDs stable for upgrades.
   PERSIST_ANIMATE = 106,
-  PERSIST_VIBE_DISCONNECT,
-  PERSIST_VIBE_RECONNECT,
-  PERSIST_BACKGROUND_COLOR,
-  PERSIST_TRACK_COLOR,
+  // Keys 107 and 108 belonged to retired settings.
+  PERSIST_BACKGROUND_COLOR = 109,
+  // Retired: one track colour for the whole face, now one per series. Never
+  // read, but the ID stays reserved so an upgrade cannot mistake it.
+  PERSIST_LEGACY_TRACK_COLOR,
   PERSIST_HOUR_BAR_COLOR,
   PERSIST_HOUR_TEXT_COLOR,
   PERSIST_MINUTE_BAR_COLOR,
@@ -47,27 +48,78 @@ enum {
   PERSIST_SMOOTH_PROGRESS,
   PERSIST_FULL_DATE_NAMES,
   PERSIST_WEEK_STARTS_SUNDAY,
+  // Retired: the order travelled as one integer, four bits per series, which
+  // ran out of room past seven. Still read, to migrate those installs.
+  PERSIST_LEGACY_SERIES_ORDER,
+  PERSIST_SERIES_VISIBLE,
+  // The order as one byte per series, in display order.
   PERSIST_SERIES_ORDER,
-  PERSIST_SERIES_VISIBLE
+  PERSIST_MERGE_HOUR_MINUTE,
+  PERSIST_STEP_GOAL,
+  PERSIST_CUSTOM_START_DAY,
+  PERSIST_CUSTOM_TARGET_DAY,
+  PERSIST_CUSTOM_LABEL,
+  PERSIST_LATITUDE,
+  PERSIST_LONGITUDE,
+  PERSIST_LOCATION_VALID,
+  PERSIST_DAYLIGHT_BAR_COLOR,
+  PERSIST_DAYLIGHT_TEXT_COLOR,
+  PERSIST_DAYLIGHT_TEXT_ON_BAR_COLOR,
+  PERSIST_MOON_BAR_COLOR,
+  PERSIST_MOON_TEXT_COLOR,
+  PERSIST_MOON_TEXT_ON_BAR_COLOR,
+  PERSIST_STEPS_BAR_COLOR,
+  PERSIST_STEPS_TEXT_COLOR,
+  PERSIST_STEPS_TEXT_ON_BAR_COLOR,
+  PERSIST_CUSTOM_BAR_COLOR,
+  PERSIST_CUSTOM_TEXT_COLOR,
+  PERSIST_CUSTOM_TEXT_ON_BAR_COLOR,
+  PERSIST_HOUR_TRACK_COLOR,
+  PERSIST_MINUTE_TRACK_COLOR,
+  PERSIST_MONTH_TRACK_COLOR,
+  PERSIST_DATE_TRACK_COLOR,
+  PERSIST_DAY_TRACK_COLOR,
+  PERSIST_SECOND_TRACK_COLOR,
+  PERSIST_BATTERY_TRACK_COLOR,
+  PERSIST_DAYLIGHT_TRACK_COLOR,
+  PERSIST_MOON_TRACK_COLOR,
+  PERSIST_STEPS_TRACK_COLOR,
+  PERSIST_CUSTOM_TRACK_COLOR,
+  PERSIST_ROUND_POLAR_FILL
 };
 
+// All four tables are indexed by SeriesId.
 static const int s_bar_persist_keys[MAX_SERIES] = {
-    PERSIST_HOUR_BAR_COLOR,    PERSIST_MINUTE_BAR_COLOR,
-    PERSIST_MONTH_BAR_COLOR,   PERSIST_DATE_BAR_COLOR,
-    PERSIST_DAY_BAR_COLOR,     PERSIST_SECOND_BAR_COLOR,
-    PERSIST_BATTERY_BAR_COLOR};
+    PERSIST_HOUR_BAR_COLOR,     PERSIST_MINUTE_BAR_COLOR,
+    PERSIST_MONTH_BAR_COLOR,    PERSIST_DATE_BAR_COLOR,
+    PERSIST_DAY_BAR_COLOR,      PERSIST_SECOND_BAR_COLOR,
+    PERSIST_BATTERY_BAR_COLOR,  PERSIST_DAYLIGHT_BAR_COLOR,
+    PERSIST_MOON_BAR_COLOR,     PERSIST_STEPS_BAR_COLOR,
+    PERSIST_CUSTOM_BAR_COLOR};
+
+static const int s_track_persist_keys[MAX_SERIES] = {
+    PERSIST_HOUR_TRACK_COLOR,     PERSIST_MINUTE_TRACK_COLOR,
+    PERSIST_MONTH_TRACK_COLOR,    PERSIST_DATE_TRACK_COLOR,
+    PERSIST_DAY_TRACK_COLOR,      PERSIST_SECOND_TRACK_COLOR,
+    PERSIST_BATTERY_TRACK_COLOR,  PERSIST_DAYLIGHT_TRACK_COLOR,
+    PERSIST_MOON_TRACK_COLOR,     PERSIST_STEPS_TRACK_COLOR,
+    PERSIST_CUSTOM_TRACK_COLOR};
 
 static const int s_text_persist_keys[MAX_SERIES] = {
-    PERSIST_HOUR_TEXT_COLOR,    PERSIST_MINUTE_TEXT_COLOR,
-    PERSIST_MONTH_TEXT_COLOR,   PERSIST_DATE_TEXT_COLOR,
-    PERSIST_DAY_TEXT_COLOR,     PERSIST_SECOND_TEXT_COLOR,
-    PERSIST_BATTERY_TEXT_COLOR};
+    PERSIST_HOUR_TEXT_COLOR,     PERSIST_MINUTE_TEXT_COLOR,
+    PERSIST_MONTH_TEXT_COLOR,    PERSIST_DATE_TEXT_COLOR,
+    PERSIST_DAY_TEXT_COLOR,      PERSIST_SECOND_TEXT_COLOR,
+    PERSIST_BATTERY_TEXT_COLOR,  PERSIST_DAYLIGHT_TEXT_COLOR,
+    PERSIST_MOON_TEXT_COLOR,     PERSIST_STEPS_TEXT_COLOR,
+    PERSIST_CUSTOM_TEXT_COLOR};
 
 static const int s_text_on_bar_persist_keys[MAX_SERIES] = {
-    PERSIST_HOUR_TEXT_ON_BAR_COLOR,    PERSIST_MINUTE_TEXT_ON_BAR_COLOR,
-    PERSIST_MONTH_TEXT_ON_BAR_COLOR,   PERSIST_DATE_TEXT_ON_BAR_COLOR,
-    PERSIST_DAY_TEXT_ON_BAR_COLOR,     PERSIST_SECOND_TEXT_ON_BAR_COLOR,
-    PERSIST_BATTERY_TEXT_ON_BAR_COLOR};
+    PERSIST_HOUR_TEXT_ON_BAR_COLOR,     PERSIST_MINUTE_TEXT_ON_BAR_COLOR,
+    PERSIST_MONTH_TEXT_ON_BAR_COLOR,    PERSIST_DATE_TEXT_ON_BAR_COLOR,
+    PERSIST_DAY_TEXT_ON_BAR_COLOR,      PERSIST_SECOND_TEXT_ON_BAR_COLOR,
+    PERSIST_BATTERY_TEXT_ON_BAR_COLOR,  PERSIST_DAYLIGHT_TEXT_ON_BAR_COLOR,
+    PERSIST_MOON_TEXT_ON_BAR_COLOR,     PERSIST_STEPS_TEXT_ON_BAR_COLOR,
+    PERSIST_CUSTOM_TEXT_ON_BAR_COLOR};
 
 static int clamp_int(int value, int minimum, int maximum) {
   if (value < minimum) {
@@ -93,41 +145,73 @@ static uint8_t valid_clock_refresh(int value) {
   }
 }
 
-// The display order travels as one integer: series id 0 in the most
-// significant nibble, so MAX_SERIES ids fit in 28 bits.
-static uint32_t pack_series_order(const uint8_t order[MAX_SERIES]) {
-  uint32_t packed = 0;
-  for (int index = 0; index < MAX_SERIES; ++index) {
-    packed = (packed << 4) | (order[index] & 0x0F);
-  }
-  return packed;
+// The Pebble palette has four levels per channel, so halving the level index is
+// the darkest step that keeps a colour recognisably itself: FF and AA both land
+// on 55, and 55 lands on black.
+static GColor darker_color(GColor color) {
+  uint8_t red = (color.argb >> 4) & 0x03;
+  uint8_t green = (color.argb >> 2) & 0x03;
+  uint8_t blue = color.argb & 0x03;
+  return (GColor){.argb = (uint8_t)(0xC0 | ((red / 2) << 4) |
+                                    ((green / 2) << 2) | (blue / 2))};
 }
 
-// Only writes to `order` when `packed` is a complete permutation, so a corrupt
-// value leaves the current order alone.
-static bool unpack_series_order(uint32_t packed, uint8_t order[MAX_SERIES]) {
+// Only writes to `order` when the bytes are a complete permutation, so a
+// corrupt value leaves the current order alone.
+static bool apply_series_order(const uint8_t *data, size_t length,
+                               uint8_t order[MAX_SERIES]) {
+  if (length != MAX_SERIES) {
+    return false;
+  }
   uint8_t candidate[MAX_SERIES];
-  uint8_t seen = 0;
+  bool seen[MAX_SERIES] = {false};
   for (int index = 0; index < MAX_SERIES; ++index) {
-    uint8_t id = (packed >> (4 * (MAX_SERIES - 1 - index))) & 0x0F;
-    if (id >= MAX_SERIES || (seen & (1 << id))) {
+    uint8_t id = data[index];
+    if (id >= MAX_SERIES || seen[id]) {
       return false;
     }
-    seen |= 1 << id;
+    seen[id] = true;
     candidate[index] = id;
   }
   memcpy(order, candidate, sizeof(candidate));
   return true;
 }
 
+// The order used to travel as one integer, series id 0 in the most significant
+// nibble. Series added since keep the default tail order behind the saved ones.
+static bool apply_legacy_series_order(uint32_t packed,
+                                      uint8_t order[MAX_SERIES]) {
+  uint8_t candidate[MAX_SERIES];
+  bool seen[MAX_SERIES] = {false};
+  int count = 0;
+  for (int index = 0; index < LEGACY_SERIES_COUNT; ++index) {
+    uint8_t id =
+        (packed >> (4 * (LEGACY_SERIES_COUNT - 1 - index))) & 0x0F;
+    if (id >= LEGACY_SERIES_COUNT || seen[id]) {
+      return false;
+    }
+    seen[id] = true;
+    candidate[count++] = id;
+  }
+  for (uint8_t id = LEGACY_SERIES_COUNT; id < MAX_SERIES; ++id) {
+    candidate[count++] = id;
+  }
+  memcpy(order, candidate, sizeof(candidate));
+  return true;
+}
+
 // An empty mask would leave a blank watchface, so it is rejected outright.
+static void apply_bool_mask(uint32_t mask, bool values[MAX_SERIES]) {
+  for (int index = 0; index < MAX_SERIES; ++index) {
+    values[index] = (mask & (1u << index)) != 0;
+  }
+}
+
 static bool apply_visible_mask(uint32_t mask, bool visible[MAX_SERIES]) {
-  if ((mask & ((1 << MAX_SERIES) - 1)) == 0) {
+  if ((mask & ((1u << MAX_SERIES) - 1)) == 0) {
     return false;
   }
-  for (int index = 0; index < MAX_SERIES; ++index) {
-    visible[index] = (mask & (1 << index)) != 0;
-  }
+  apply_bool_mask(mask, visible);
   return true;
 }
 
@@ -135,15 +219,16 @@ static uint32_t series_visible_mask(const bool visible[MAX_SERIES]) {
   uint32_t mask = 0;
   for (int index = 0; index < MAX_SERIES; ++index) {
     if (visible[index]) {
-      mask |= 1 << index;
+      mask |= 1u << index;
     }
   }
   return mask;
 }
 
 // Layout used before the series list existed: hour, minute, seconds, the three
-// date parts in the language's natural order, then battery. Used as the
-// starting point for installs upgrading from that build.
+// date parts in the language's natural order, then battery, with the series
+// added since behind them. Used as the starting point for installs upgrading
+// from that build.
 static void series_order_from_language(uint8_t language,
                                        uint8_t order[MAX_SERIES]) {
   static const uint8_t date_part_series[] = {
@@ -158,7 +243,10 @@ static void series_order_from_language(uint8_t language,
   for (int part = 0; part < 3; ++part) {
     order[index++] = date_part_series[date_part_order[language][part]];
   }
-  order[index] = SERIES_BATTERY;
+  order[index++] = SERIES_BATTERY;
+  for (uint8_t id = LEGACY_SERIES_COUNT; id < MAX_SERIES; ++id) {
+    order[index++] = id;
+  }
 }
 
 static GColor color_from_persist(int key, GColor fallback) {
@@ -168,67 +256,11 @@ static GColor color_from_persist(int key, GColor fallback) {
   return (GColor){.argb = (uint8_t)persist_read_int(key)};
 }
 
-static uint32_t bar_message_key(int index) {
-  switch (index) {
-    case SERIES_HOUR:
-      return MESSAGE_KEY_SETTING_HOUR_BAR_COLOR;
-    case SERIES_MINUTE:
-      return MESSAGE_KEY_SETTING_MINUTE_BAR_COLOR;
-    case SERIES_MONTH:
-      return MESSAGE_KEY_SETTING_MONTH_BAR_COLOR;
-    case SERIES_DATE:
-      return MESSAGE_KEY_SETTING_DATE_BAR_COLOR;
-    case SERIES_DAY:
-      return MESSAGE_KEY_SETTING_DAY_BAR_COLOR;
-    case SERIES_SECOND:
-      return MESSAGE_KEY_SETTING_SECOND_BAR_COLOR;
-    default:
-      return MESSAGE_KEY_SETTING_BATTERY_BAR_COLOR;
-  }
-}
-
-static uint32_t text_message_key(int index) {
-  switch (index) {
-    case SERIES_HOUR:
-      return MESSAGE_KEY_SETTING_HOUR_TEXT_COLOR;
-    case SERIES_MINUTE:
-      return MESSAGE_KEY_SETTING_MINUTE_TEXT_COLOR;
-    case SERIES_MONTH:
-      return MESSAGE_KEY_SETTING_MONTH_TEXT_COLOR;
-    case SERIES_DATE:
-      return MESSAGE_KEY_SETTING_DATE_TEXT_COLOR;
-    case SERIES_DAY:
-      return MESSAGE_KEY_SETTING_DAY_TEXT_COLOR;
-    case SERIES_SECOND:
-      return MESSAGE_KEY_SETTING_SECOND_TEXT_COLOR;
-    default:
-      return MESSAGE_KEY_SETTING_BATTERY_TEXT_COLOR;
-  }
-}
-
-static uint32_t text_on_bar_message_key(int index) {
-  switch (index) {
-    case SERIES_HOUR:
-      return MESSAGE_KEY_SETTING_HOUR_TEXT_ON_BAR_COLOR;
-    case SERIES_MINUTE:
-      return MESSAGE_KEY_SETTING_MINUTE_TEXT_ON_BAR_COLOR;
-    case SERIES_MONTH:
-      return MESSAGE_KEY_SETTING_MONTH_TEXT_ON_BAR_COLOR;
-    case SERIES_DATE:
-      return MESSAGE_KEY_SETTING_DATE_TEXT_ON_BAR_COLOR;
-    case SERIES_DAY:
-      return MESSAGE_KEY_SETTING_DAY_TEXT_ON_BAR_COLOR;
-    case SERIES_SECOND:
-      return MESSAGE_KEY_SETTING_SECOND_TEXT_ON_BAR_COLOR;
-    default:
-      return MESSAGE_KEY_SETTING_BATTERY_TEXT_ON_BAR_COLOR;
-  }
-}
-
 static void settings_set_defaults(Settings *settings) {
   *settings = (Settings){
       .style = STYLE_HORIZONTAL,
       .text_placement = TEXT_PLACE_INSIDE_START,
+      .round_polar_fill = ROUND_POLAR_FILL_NONE,
       .clock_format = CLOCK_FORMAT_SYSTEM,
       .language = LANGUAGE_EN,
       .clock_refresh_seconds = 60,
@@ -239,23 +271,32 @@ static void settings_set_defaults(Settings *settings) {
       .seamless = true,
       .text_outline = false,
       .animate = true,
-      .vibe_disconnect = true,
-      .vibe_reconnect = false,
+      .merge_hour_minute = false,
+      .step_goal = 10000,
+      .custom_start_day = 0,
+      .custom_target_day = 0,
+      .custom_label = "{d}",
+      .latitude = 0,
+      .longitude = 0,
+      .location_valid = false,
       .series_order =
           {
               SERIES_HOUR, SERIES_MINUTE, SERIES_SECOND, SERIES_DAY,
-              SERIES_MONTH, SERIES_DATE, SERIES_BATTERY,
+              SERIES_MONTH, SERIES_DATE, SERIES_BATTERY, SERIES_DAYLIGHT,
+              SERIES_MOON, SERIES_STEPS, SERIES_CUSTOM,
           },
-      // Indexed by SeriesId: everything but seconds and battery.
+      // Indexed by SeriesId: the five bars the original face showed, and
+      // nothing that needs a goal, a date or a location to mean anything.
       .series_visible =
           {
-              [SERIES_HOUR] = true,   [SERIES_MINUTE] = true,
-              [SERIES_MONTH] = true,  [SERIES_DATE] = true,
-              [SERIES_DAY] = true,    [SERIES_SECOND] = false,
-              [SERIES_BATTERY] = false,
+              [SERIES_HOUR] = true,      [SERIES_MINUTE] = true,
+              [SERIES_MONTH] = true,     [SERIES_DATE] = true,
+              [SERIES_DAY] = true,       [SERIES_SECOND] = false,
+              [SERIES_BATTERY] = false,  [SERIES_DAYLIGHT] = false,
+              [SERIES_MOON] = false,     [SERIES_STEPS] = false,
+              [SERIES_CUSTOM] = false,
           },
       .background_color = GColorBlack,
-      .track_color = GColorBlack,
       .bar_colors =
           {
               GColorFromHEX(0x00FF00),
@@ -264,7 +305,11 @@ static void settings_set_defaults(Settings *settings) {
               GColorFromHEX(0xFFFF00),
               GColorFromHEX(0xFF0000),
               GColorFromHEX(0xAA00FF),
-              GColorWhite,
+              GColorFromHEX(0x00FFFF),
+              GColorFromHEX(0xFFAA00),
+              GColorFromHEX(0xAAAAFF),
+              GColorFromHEX(0x55FF00),
+              GColorFromHEX(0xFF00AA),
           },
       .text_colors =
           {
@@ -275,6 +320,10 @@ static void settings_set_defaults(Settings *settings) {
               GColorFromHEX(0xFF0000),
               GColorFromHEX(0xAA00FF),
               GColorFromHEX(0x00FFFF),
+              GColorFromHEX(0xFFAA00),
+              GColorFromHEX(0xAAAAFF),
+              GColorFromHEX(0x55FF00),
+              GColorFromHEX(0xFF00AA),
           },
       .text_on_bar_colors =
           {
@@ -284,8 +333,21 @@ static void settings_set_defaults(Settings *settings) {
               GColorFromHEX(0x555500),
               GColorFromHEX(0xFFAAAA),
               GColorFromHEX(0xFFAAFF),
-              GColorWhite,
+              GColorFromHEX(0xFFFFFF),
+              GColorFromHEX(0x552A00),
+              GColorFromHEX(0x000055),
+              GColorFromHEX(0x005500),
+              GColorFromHEX(0xFFAAFF),
           }};
+
+  // The point of a coloured track: each bar sits on a much darker shade of its
+  // own colour rather than on one shared background. Text defaults to the same
+  // colour on the track and on the filled portion; saved colours still
+  // override the two roles independently.
+  for (int index = 0; index < MAX_SERIES; ++index) {
+    settings->track_colors[index] = darker_color(settings->bar_colors[index]);
+    settings->text_colors[index] = settings->text_on_bar_colors[index];
+  }
 }
 
 void settings_load(Settings *settings) {
@@ -301,6 +363,11 @@ void settings_load(Settings *settings) {
         clamp_int(persist_read_int(PERSIST_TEXT_PLACEMENT), 0,
                   TEXT_PLACE_COUNT - 1);
   }
+  if (persist_exists(PERSIST_ROUND_POLAR_FILL)) {
+    settings->round_polar_fill =
+        clamp_int(persist_read_int(PERSIST_ROUND_POLAR_FILL),
+                  ROUND_POLAR_FILL_NONE, ROUND_POLAR_FILL_BOTH);
+  }
   if (persist_exists(PERSIST_CLOCK_FORMAT)) {
     settings->clock_format =
         clamp_int(persist_read_int(PERSIST_CLOCK_FORMAT), 0,
@@ -313,6 +380,29 @@ void settings_load(Settings *settings) {
   if (persist_exists(PERSIST_CLOCK_REFRESH)) {
     settings->clock_refresh_seconds =
         valid_clock_refresh(persist_read_int(PERSIST_CLOCK_REFRESH));
+  }
+  if (persist_exists(PERSIST_STEP_GOAL)) {
+    settings->step_goal =
+        (uint16_t)clamp_int(persist_read_int(PERSIST_STEP_GOAL), 500, 60000);
+  }
+  if (persist_exists(PERSIST_CUSTOM_START_DAY)) {
+    settings->custom_start_day = persist_read_int(PERSIST_CUSTOM_START_DAY);
+  }
+  if (persist_exists(PERSIST_CUSTOM_TARGET_DAY)) {
+    settings->custom_target_day = persist_read_int(PERSIST_CUSTOM_TARGET_DAY);
+  }
+  if (persist_exists(PERSIST_CUSTOM_LABEL)) {
+    persist_read_string(PERSIST_CUSTOM_LABEL, settings->custom_label,
+                        sizeof(settings->custom_label));
+  }
+  if (persist_exists(PERSIST_LATITUDE)) {
+    settings->latitude = persist_read_int(PERSIST_LATITUDE);
+  }
+  if (persist_exists(PERSIST_LONGITUDE)) {
+    settings->longitude = persist_read_int(PERSIST_LONGITUDE);
+  }
+  if (persist_exists(PERSIST_LOCATION_VALID)) {
+    settings->location_valid = persist_read_bool(PERSIST_LOCATION_VALID);
   }
   if (persist_exists(PERSIST_LEADING_ZERO)) {
     settings->leading_zero = persist_read_bool(PERSIST_LEADING_ZERO);
@@ -336,16 +426,20 @@ void settings_load(Settings *settings) {
   if (persist_exists(PERSIST_ANIMATE)) {
     settings->animate = persist_read_bool(PERSIST_ANIMATE);
   }
-  if (persist_exists(PERSIST_VIBE_DISCONNECT)) {
-    settings->vibe_disconnect = persist_read_bool(PERSIST_VIBE_DISCONNECT);
+  if (persist_exists(PERSIST_MERGE_HOUR_MINUTE)) {
+    settings->merge_hour_minute =
+        persist_read_bool(PERSIST_MERGE_HOUR_MINUTE);
   }
-  if (persist_exists(PERSIST_VIBE_RECONNECT)) {
-    settings->vibe_reconnect = persist_read_bool(PERSIST_VIBE_RECONNECT);
-  }
-
   if (persist_exists(PERSIST_SERIES_ORDER)) {
-    unpack_series_order((uint32_t)persist_read_int(PERSIST_SERIES_ORDER),
-                        settings->series_order);
+    uint8_t data[MAX_SERIES] = {0};
+    int read = persist_read_data(PERSIST_SERIES_ORDER, data, sizeof(data));
+    if (read == (int)sizeof(data)) {
+      apply_series_order(data, sizeof(data), settings->series_order);
+    }
+  } else if (persist_exists(PERSIST_LEGACY_SERIES_ORDER)) {
+    apply_legacy_series_order(
+        (uint32_t)persist_read_int(PERSIST_LEGACY_SERIES_ORDER),
+        settings->series_order);
   } else {
     series_order_from_language(settings->language, settings->series_order);
   }
@@ -362,11 +456,8 @@ void settings_load(Settings *settings) {
           persist_read_bool(PERSIST_LEGACY_SHOW_BATTERY);
     }
   }
-
   settings->background_color =
       color_from_persist(PERSIST_BACKGROUND_COLOR, settings->background_color);
-  settings->track_color =
-      color_from_persist(PERSIST_TRACK_COLOR, settings->track_color);
 
   for (int index = 0; index < MAX_SERIES; ++index) {
     settings->bar_colors[index] =
@@ -378,15 +469,28 @@ void settings_load(Settings *settings) {
     settings->text_on_bar_colors[index] =
         color_from_persist(s_text_on_bar_persist_keys[index],
                            settings->text_on_bar_colors[index]);
+    // Derived from whatever the bar colour turned out to be, so a saved bar
+    // colour without a saved track still gets a matching dark shade.
+    settings->track_colors[index] =
+        color_from_persist(s_track_persist_keys[index],
+                           darker_color(settings->bar_colors[index]));
   }
 }
 
 void settings_save(const Settings *settings) {
   persist_write_int(PERSIST_STYLE, settings->style);
   persist_write_int(PERSIST_TEXT_PLACEMENT, settings->text_placement);
+  persist_write_int(PERSIST_ROUND_POLAR_FILL, settings->round_polar_fill);
   persist_write_int(PERSIST_CLOCK_FORMAT, settings->clock_format);
   persist_write_int(PERSIST_LANGUAGE, settings->language);
   persist_write_int(PERSIST_CLOCK_REFRESH, settings->clock_refresh_seconds);
+  persist_write_int(PERSIST_STEP_GOAL, settings->step_goal);
+  persist_write_int(PERSIST_CUSTOM_START_DAY, settings->custom_start_day);
+  persist_write_int(PERSIST_CUSTOM_TARGET_DAY, settings->custom_target_day);
+  persist_write_string(PERSIST_CUSTOM_LABEL, settings->custom_label);
+  persist_write_int(PERSIST_LATITUDE, settings->latitude);
+  persist_write_int(PERSIST_LONGITUDE, settings->longitude);
+  persist_write_bool(PERSIST_LOCATION_VALID, settings->location_valid);
   persist_write_bool(PERSIST_LEADING_ZERO, settings->leading_zero);
   persist_write_bool(PERSIST_SMOOTH_PROGRESS, settings->smooth_progress);
   persist_write_bool(PERSIST_FULL_DATE_NAMES, settings->full_date_names);
@@ -395,18 +499,18 @@ void settings_save(const Settings *settings) {
   persist_write_bool(PERSIST_SEAMLESS, settings->seamless);
   persist_write_bool(PERSIST_TEXT_OUTLINE, settings->text_outline);
   persist_write_bool(PERSIST_ANIMATE, settings->animate);
-  persist_write_bool(PERSIST_VIBE_DISCONNECT, settings->vibe_disconnect);
-  persist_write_bool(PERSIST_VIBE_RECONNECT, settings->vibe_reconnect);
-  persist_write_int(PERSIST_SERIES_ORDER,
-                    (int)pack_series_order(settings->series_order));
+  persist_write_bool(PERSIST_MERGE_HOUR_MINUTE, settings->merge_hour_minute);
+  persist_write_data(PERSIST_SERIES_ORDER, settings->series_order,
+                     MAX_SERIES);
   persist_write_int(PERSIST_SERIES_VISIBLE,
                     (int)series_visible_mask(settings->series_visible));
   persist_write_int(PERSIST_BACKGROUND_COLOR, settings->background_color.argb);
-  persist_write_int(PERSIST_TRACK_COLOR, settings->track_color.argb);
 
   for (int index = 0; index < MAX_SERIES; ++index) {
     persist_write_int(s_bar_persist_keys[index],
                       settings->bar_colors[index].argb);
+    persist_write_int(s_track_persist_keys[index],
+                      settings->track_colors[index].argb);
     persist_write_int(s_text_persist_keys[index],
                       settings->text_colors[index].argb);
     persist_write_int(s_text_on_bar_persist_keys[index],
@@ -444,6 +548,13 @@ void settings_apply_message(Settings *settings, DictionaryIterator *iterator) {
         clamp_int(tuple->value->int32, 0, TEXT_PLACE_COUNT - 1);
   }
 
+  tuple = dict_find(iterator, MESSAGE_KEY_SETTING_ROUND_POLAR_FILL);
+  if (tuple) {
+    settings->round_polar_fill =
+        clamp_int(tuple->value->int32, ROUND_POLAR_FILL_NONE,
+                  ROUND_POLAR_FILL_BOTH);
+  }
+
   tuple = dict_find(iterator, MESSAGE_KEY_SETTING_CLOCK_FORMAT);
   if (tuple) {
     settings->clock_format =
@@ -462,9 +573,44 @@ void settings_apply_message(Settings *settings, DictionaryIterator *iterator) {
         valid_clock_refresh(tuple->value->int32);
   }
 
-  tuple = dict_find(iterator, MESSAGE_KEY_SETTING_SERIES_ORDER);
+  tuple = dict_find(iterator, MESSAGE_KEY_SETTING_STEP_GOAL);
   if (tuple) {
-    unpack_series_order(tuple->value->uint32, settings->series_order);
+    settings->step_goal =
+        (uint16_t)clamp_int(tuple->value->int32, 500, 60000);
+  }
+
+  // Day numbers, so the range is generous but still bounded: 1970 through the
+  // middle of the twenty-second century.
+  tuple = dict_find(iterator, MESSAGE_KEY_SETTING_CUSTOM_START_DAY);
+  if (tuple) {
+    settings->custom_start_day = clamp_int(tuple->value->int32, 0, 80000);
+  }
+
+  tuple = dict_find(iterator, MESSAGE_KEY_SETTING_CUSTOM_TARGET_DAY);
+  if (tuple) {
+    settings->custom_target_day = clamp_int(tuple->value->int32, 0, 80000);
+  }
+
+  tuple = dict_find(iterator, MESSAGE_KEY_SETTING_CUSTOM_LABEL);
+  if (tuple && tuple->type == TUPLE_CSTRING) {
+    snprintf(settings->custom_label, sizeof(settings->custom_label), "%s",
+             tuple->value->cstring);
+  }
+
+  tuple = dict_find(iterator, MESSAGE_KEY_SETTING_LATITUDE);
+  if (tuple) {
+    settings->latitude = clamp_int(tuple->value->int32, -90000000, 90000000);
+  }
+
+  tuple = dict_find(iterator, MESSAGE_KEY_SETTING_LONGITUDE);
+  if (tuple) {
+    settings->longitude = clamp_int(tuple->value->int32, -180000000, 180000000);
+  }
+
+  tuple = dict_find(iterator, MESSAGE_KEY_SETTING_SERIES_ORDER);
+  if (tuple && tuple->type == TUPLE_BYTE_ARRAY) {
+    apply_series_order(tuple->value->data, tuple->length,
+                       settings->series_order);
   }
 
   tuple = dict_find(iterator, MESSAGE_KEY_SETTING_SERIES_VISIBLE);
@@ -472,6 +618,8 @@ void settings_apply_message(Settings *settings, DictionaryIterator *iterator) {
     apply_visible_mask(tuple->value->uint32, settings->series_visible);
   }
 
+  apply_bool_tuple(iterator, MESSAGE_KEY_SETTING_LOCATION_VALID,
+                   &settings->location_valid);
   apply_bool_tuple(iterator, MESSAGE_KEY_SETTING_LEADING_ZERO,
                    &settings->leading_zero);
   apply_bool_tuple(iterator, MESSAGE_KEY_SETTING_SMOOTH_PROGRESS,
@@ -485,21 +633,71 @@ void settings_apply_message(Settings *settings, DictionaryIterator *iterator) {
   apply_bool_tuple(iterator, MESSAGE_KEY_SETTING_TEXT_OUTLINE,
                    &settings->text_outline);
   apply_bool_tuple(iterator, MESSAGE_KEY_SETTING_ANIMATE, &settings->animate);
-  apply_bool_tuple(iterator, MESSAGE_KEY_SETTING_VIBE_DISCONNECT,
-                   &settings->vibe_disconnect);
-  apply_bool_tuple(iterator, MESSAGE_KEY_SETTING_VIBE_RECONNECT,
-                   &settings->vibe_reconnect);
+  apply_bool_tuple(iterator, MESSAGE_KEY_SETTING_MERGE_HOUR_MINUTE,
+                   &settings->merge_hour_minute);
 
   apply_color_tuple(iterator, MESSAGE_KEY_SETTING_BACKGROUND_COLOR,
                     &settings->background_color);
-  apply_color_tuple(iterator, MESSAGE_KEY_SETTING_TRACK_COLOR,
-                    &settings->track_color);
+
+  // The SDK resolves MESSAGE_KEY_* at run time, so these cannot be file-scope
+  // constants. Built once here and indexed by SeriesId.
+  const uint32_t bar_keys[MAX_SERIES] = {
+      MESSAGE_KEY_SETTING_HOUR_BAR_COLOR,
+      MESSAGE_KEY_SETTING_MINUTE_BAR_COLOR,
+      MESSAGE_KEY_SETTING_MONTH_BAR_COLOR,
+      MESSAGE_KEY_SETTING_DATE_BAR_COLOR,
+      MESSAGE_KEY_SETTING_DAY_BAR_COLOR,
+      MESSAGE_KEY_SETTING_SECOND_BAR_COLOR,
+      MESSAGE_KEY_SETTING_BATTERY_BAR_COLOR,
+      MESSAGE_KEY_SETTING_DAYLIGHT_BAR_COLOR,
+      MESSAGE_KEY_SETTING_MOON_BAR_COLOR,
+      MESSAGE_KEY_SETTING_STEPS_BAR_COLOR,
+      MESSAGE_KEY_SETTING_CUSTOM_BAR_COLOR};
+  const uint32_t track_keys[MAX_SERIES] = {
+      MESSAGE_KEY_SETTING_HOUR_TRACK_COLOR,
+      MESSAGE_KEY_SETTING_MINUTE_TRACK_COLOR,
+      MESSAGE_KEY_SETTING_MONTH_TRACK_COLOR,
+      MESSAGE_KEY_SETTING_DATE_TRACK_COLOR,
+      MESSAGE_KEY_SETTING_DAY_TRACK_COLOR,
+      MESSAGE_KEY_SETTING_SECOND_TRACK_COLOR,
+      MESSAGE_KEY_SETTING_BATTERY_TRACK_COLOR,
+      MESSAGE_KEY_SETTING_DAYLIGHT_TRACK_COLOR,
+      MESSAGE_KEY_SETTING_MOON_TRACK_COLOR,
+      MESSAGE_KEY_SETTING_STEPS_TRACK_COLOR,
+      MESSAGE_KEY_SETTING_CUSTOM_TRACK_COLOR};
+  const uint32_t text_keys[MAX_SERIES] = {
+      MESSAGE_KEY_SETTING_HOUR_TEXT_COLOR,
+      MESSAGE_KEY_SETTING_MINUTE_TEXT_COLOR,
+      MESSAGE_KEY_SETTING_MONTH_TEXT_COLOR,
+      MESSAGE_KEY_SETTING_DATE_TEXT_COLOR,
+      MESSAGE_KEY_SETTING_DAY_TEXT_COLOR,
+      MESSAGE_KEY_SETTING_SECOND_TEXT_COLOR,
+      MESSAGE_KEY_SETTING_BATTERY_TEXT_COLOR,
+      MESSAGE_KEY_SETTING_DAYLIGHT_TEXT_COLOR,
+      MESSAGE_KEY_SETTING_MOON_TEXT_COLOR,
+      MESSAGE_KEY_SETTING_STEPS_TEXT_COLOR,
+      MESSAGE_KEY_SETTING_CUSTOM_TEXT_COLOR};
+  const uint32_t text_on_bar_keys[MAX_SERIES] = {
+      MESSAGE_KEY_SETTING_HOUR_TEXT_ON_BAR_COLOR,
+      MESSAGE_KEY_SETTING_MINUTE_TEXT_ON_BAR_COLOR,
+      MESSAGE_KEY_SETTING_MONTH_TEXT_ON_BAR_COLOR,
+      MESSAGE_KEY_SETTING_DATE_TEXT_ON_BAR_COLOR,
+      MESSAGE_KEY_SETTING_DAY_TEXT_ON_BAR_COLOR,
+      MESSAGE_KEY_SETTING_SECOND_TEXT_ON_BAR_COLOR,
+      MESSAGE_KEY_SETTING_BATTERY_TEXT_ON_BAR_COLOR,
+      MESSAGE_KEY_SETTING_DAYLIGHT_TEXT_ON_BAR_COLOR,
+      MESSAGE_KEY_SETTING_MOON_TEXT_ON_BAR_COLOR,
+      MESSAGE_KEY_SETTING_STEPS_TEXT_ON_BAR_COLOR,
+      MESSAGE_KEY_SETTING_CUSTOM_TEXT_ON_BAR_COLOR};
+
   for (int index = 0; index < MAX_SERIES; ++index) {
-    apply_color_tuple(iterator, bar_message_key(index),
+    apply_color_tuple(iterator, bar_keys[index],
                       &settings->bar_colors[index]);
-    apply_color_tuple(iterator, text_message_key(index),
+    apply_color_tuple(iterator, track_keys[index],
+                      &settings->track_colors[index]);
+    apply_color_tuple(iterator, text_keys[index],
                       &settings->text_colors[index]);
-    apply_color_tuple(iterator, text_on_bar_message_key(index),
+    apply_color_tuple(iterator, text_on_bar_keys[index],
                       &settings->text_on_bar_colors[index]);
   }
 }

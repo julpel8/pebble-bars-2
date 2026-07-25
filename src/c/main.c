@@ -12,7 +12,6 @@ static Layer *s_canvas_layer;
 static Settings s_settings;
 static AppTimer *s_animation_timer;
 static int s_animation_progress = 1000;
-static bool s_bluetooth_connected;
 
 static void mark_canvas_dirty(void) {
   if (s_canvas_layer) {
@@ -20,13 +19,17 @@ static void mark_canvas_dirty(void) {
   }
 }
 
+// Eleven series of two label buffers each is close to a kilobyte, and the app
+// task only gets four. Static keeps it off the render callback's stack, which
+// still has the whole graphics library to fit below it.
+static Series s_series[MAX_SERIES];
+
 static void canvas_update_proc(Layer *layer, GContext *ctx) {
   GRect full_bounds = layer_get_bounds(layer);
   GRect content_bounds =
       layer_get_unobstructed_bounds(window_get_root_layer(s_window));
-  Series series[MAX_SERIES];
-  int count = series_build(series, &s_settings);
-  renderer_draw(ctx, full_bounds, content_bounds, series, count, &s_settings,
+  int count = series_build(s_series, &s_settings);
+  renderer_draw(ctx, full_bounds, content_bounds, s_series, count, &s_settings,
                 s_animation_progress);
 }
 
@@ -64,6 +67,9 @@ static void start_animation(void) {
 static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   if (s_settings.clock_refresh_seconds >= 60 ||
       tick_time->tm_sec % s_settings.clock_refresh_seconds == 0) {
+    // A tick is the one place the step count is allowed to go stale, so it
+    // refreshes here rather than on every redraw.
+    series_invalidate_steps();
     mark_canvas_dirty();
   }
 }
@@ -81,17 +87,17 @@ static void battery_handler(BatteryChargeState state) {
   }
 }
 
-static void bluetooth_handler(bool connected) {
-  if (connected == s_bluetooth_connected) {
+#if defined(PBL_HEALTH)
+static void health_handler(HealthEventType event, void *context) {
+  if (event != HealthEventMovementUpdate) {
     return;
   }
-  if (connected && s_settings.vibe_reconnect) {
-    vibes_short_pulse();
-  } else if (!connected && s_settings.vibe_disconnect) {
-    vibes_double_pulse();
+  series_invalidate_steps();
+  if (s_settings.series_visible[SERIES_STEPS]) {
+    mark_canvas_dirty();
   }
-  s_bluetooth_connected = connected;
 }
+#endif
 
 static void unobstructed_change_handler(AnimationProgress progress,
                                         void *context) {
@@ -147,12 +153,15 @@ static void init(void) {
 
   update_tick_subscription();
   battery_state_service_subscribe(battery_handler);
-  s_bluetooth_connected = bluetooth_connection_service_peek();
-  bluetooth_connection_service_subscribe(bluetooth_handler);
+#if defined(PBL_HEALTH)
+  health_service_events_subscribe(health_handler, NULL);
+#endif
 
   app_message_register_inbox_received(inbox_received_handler);
   app_message_register_inbox_dropped(inbox_dropped_handler);
-  app_message_open(1024, 128);
+  // Every setting arrives in one message, and there are now four colours for
+  // each of eleven bars: 1024 bytes no longer covers it.
+  app_message_open(2048, 128);
 }
 
 static void deinit(void) {
@@ -162,7 +171,9 @@ static void deinit(void) {
   }
   tick_timer_service_unsubscribe();
   battery_state_service_unsubscribe();
-  bluetooth_connection_service_unsubscribe();
+#if defined(PBL_HEALTH)
+  health_service_events_unsubscribe();
+#endif
   app_message_deregister_callbacks();
   window_destroy(s_window);
 }

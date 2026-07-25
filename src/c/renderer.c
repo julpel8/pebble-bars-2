@@ -4,6 +4,7 @@
 
 #define BARS_MIN(a, b) ((a) < (b) ? (a) : (b))
 #define BARS_MAX(a, b) ((a) > (b) ? (a) : (b))
+#define BARS_ARRAY_LENGTH(array) ((int)(sizeof(array) / sizeof((array)[0])))
 
 typedef struct {
   GFont font;
@@ -18,6 +19,32 @@ typedef struct {
   uint8_t visible_height;
   uint8_t top_offset;
 } SmoothFontCandidate;
+
+// Integer square root, rounded down. Circle geometry here never exceeds a
+// screen radius, and avoiding newlib's sqrt() also avoids its absolute data
+// references, which are unsafe in a relocated Pebble app.
+static int integer_sqrt(int value) {
+  if (value <= 0) {
+    return 0;
+  }
+
+  uint32_t remainder = (uint32_t)value;
+  uint32_t result = 0;
+  uint32_t bit = 1u << 30;
+  while (bit > remainder) {
+    bit >>= 2;
+  }
+  while (bit != 0) {
+    if (remainder >= result + bit) {
+      remainder -= result + bit;
+      result = (result >> 1) + bit;
+    } else {
+      result >>= 1;
+    }
+    bit >>= 2;
+  }
+  return (int)result;
+}
 
 static bool rects_intersect(GRect first, GRect second) {
   return first.origin.x < second.origin.x + second.size.w &&
@@ -131,22 +158,22 @@ static int smooth_spaced_width(const char *text, GFont font, int line_height,
          BARS_MAX(0, glyph_count - 1) * letter_spacing;
 }
 
+// Largest first: the label takes the biggest size that still fits the bar, so
+// the text grows and shrinks with the number of bars on screen.
+static const SmoothFontCandidate s_leco_fonts[] = {
+    {FONT_KEY_LECO_60_BOLD_NUMBERS_AM_PM, 60, 42, 18},
+    {FONT_KEY_LECO_42_NUMBERS, 42, 29, 13},
+    {FONT_KEY_LECO_38_BOLD_NUMBERS, 38, 27, 11},
+    {FONT_KEY_LECO_36_BOLD_NUMBERS, 36, 25, 11},
+    {FONT_KEY_LECO_32_BOLD_NUMBERS, 32, 22, 10},
+    {FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM, 26, 18, 8},
+    {FONT_KEY_LECO_20_BOLD_NUMBERS, 20, 14, 6}};
+
 static SmoothFontSpec smooth_font_for_series(const Series *series,
                                              int max_width,
                                              int max_visible_height) {
-  // Largest first: the label takes the biggest size that still fits the bar,
-  // so the text grows and shrinks with the number of bars on screen.
-  static const SmoothFontCandidate leco_fonts[] = {
-      {FONT_KEY_LECO_60_BOLD_NUMBERS_AM_PM, 60, 42, 18},
-      {FONT_KEY_LECO_42_NUMBERS, 42, 29, 13},
-      {FONT_KEY_LECO_38_BOLD_NUMBERS, 38, 27, 11},
-      {FONT_KEY_LECO_36_BOLD_NUMBERS, 36, 25, 11},
-      {FONT_KEY_LECO_32_BOLD_NUMBERS, 32, 22, 10},
-      {FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM, 26, 18, 8},
-      {FONT_KEY_LECO_20_BOLD_NUMBERS, 20, 14, 6}};
-
-  const SmoothFontCandidate *fonts = leco_fonts;
-  int font_count = (int)(sizeof(leco_fonts) / sizeof(leco_fonts[0]));
+  const SmoothFontCandidate *fonts = s_leco_fonts;
+  int font_count = BARS_ARRAY_LENGTH(s_leco_fonts);
 
   SmoothFontSpec fallback = {
       .font = fonts_get_system_font(fonts[font_count - 1].key),
@@ -154,14 +181,7 @@ static SmoothFontSpec smooth_font_for_series(const Series *series,
       .visible_height = fonts[font_count - 1].visible_height,
       .top_offset = fonts[font_count - 1].top_offset};
 
-  const bool is_two_digit_value =
-      series->id == SERIES_HOUR || series->id == SERIES_MINUTE ||
-      series->id == SERIES_DATE || series->id == SERIES_SECOND;
-  const char *measurement_text = is_two_digit_value
-                                     ? "00"
-                                     : (series->id == SERIES_BATTERY
-                                            ? "100%"
-                                            : series->label);
+  const char *measurement_text = series->measure;
 
   for (int index = 0; index < font_count; ++index) {
     if (fonts[index].visible_height > max_visible_height) {
@@ -323,7 +343,7 @@ static void draw_horizontal(GContext *ctx, GRect bounds, const Series *series,
     int bar_height =
         settings->seamless ? row_height : BARS_MAX(4, row_height - 2);
     GRect track = GRect(bounds.origin.x, row_y, bounds.size.w, bar_height);
-    graphics_context_set_fill_color(ctx, settings->track_color);
+    graphics_context_set_fill_color(ctx, item->track_color);
     graphics_fill_rect(ctx, track, 0, GCornerNone);
 
     int fill_width =
@@ -333,7 +353,6 @@ static void draw_horizontal(GContext *ctx, GRect bounds, const Series *series,
     graphics_context_set_fill_color(ctx, item->bar_color);
     graphics_fill_rect(ctx, GRect(fill_x, row_y, fill_width, bar_height), 0,
                        GCornerNone);
-
     GRect bar_clip = GRect(fill_x, row_y, fill_width, bar_height);
     SmoothFontSpec font_spec =
         smooth_font_for_series(item, bounds.size.w - 4, bar_height + 1);
@@ -414,7 +433,7 @@ static void draw_vertical(GContext *ctx, GRect bounds, const Series *series,
     int bar_width =
         settings->seamless ? column_width : BARS_MAX(3, column_width - 2);
     GRect track = GRect(column_x, top, bar_width, available_height);
-    graphics_context_set_fill_color(ctx, settings->track_color);
+    graphics_context_set_fill_color(ctx, item->track_color);
     graphics_fill_rect(ctx, track, 0, GCornerNone);
 
     int fill_height =
@@ -425,7 +444,6 @@ static void draw_vertical(GContext *ctx, GRect bounds, const Series *series,
     graphics_fill_rect(ctx,
                        GRect(column_x, fill_y, bar_width, fill_height), 0,
                        GCornerNone);
-
     GRect bar_clip = GRect(column_x, fill_y, bar_width, fill_height);
     int max_text_width = BARS_MAX(1, column_width - 2);
     Series display_item = *item;
@@ -433,14 +451,16 @@ static void draw_vertical(GContext *ctx, GRect bounds, const Series *series,
     SmoothFontSpec font_spec =
         smooth_font_for_series(&display_item, max_text_width,
                                available_height);
-    bool is_date_label =
-        item->id == SERIES_MONTH || item->id == SERIES_DAY;
+    bool is_word_label = item->id == SERIES_MONTH || item->id == SERIES_DAY ||
+                         item->id == SERIES_CUSTOM;
     int full_label_width =
         smooth_letterwise_width(item->label, font_spec.font,
                                 font_spec.line_height);
-    if (is_date_label && full_label_width > max_text_width && count > 5) {
+    if (is_word_label && full_label_width > max_text_width && count > 5) {
       copy_utf8_glyphs(item->label, display_item.label,
                        sizeof(display_item.label), 2);
+      copy_utf8_glyphs(item->measure, display_item.measure,
+                       sizeof(display_item.measure), 2);
       font_spec = smooth_font_for_series(&display_item, max_text_width,
                                          available_height);
     }
@@ -486,33 +506,41 @@ typedef struct {
   bool horizontal;  // The fill runs along x rather than y.
   bool forward;     // It grows from the low edge towards the high one.
   bool labelled;    // Part of the top band, where the label sits.
+  // Pixels at the start already covered by the preceding segment's corner.
+  int overlap;
 } PolarSegment;
 
 static int segment_length(const PolarSegment *segment) {
+  // Rectangular polar progress follows the outside perimeter. In particular,
+  // a vertical run has the full outer height, not only the shorter opening
+  // between the top and bottom bands.
   return segment->horizontal ? segment->rect.size.w : segment->rect.size.h;
 }
 
 static GRect segment_fill(const PolarSegment *segment, int filled) {
   GRect rect = segment->rect;
+  int physical_length = segment->horizontal ? rect.size.w : rect.size.h;
+  int physical_filled =
+      BARS_MIN(physical_length, BARS_MAX(segment->overlap, filled));
   if (segment->horizontal) {
     if (!segment->forward) {
-      rect.origin.x += rect.size.w - filled;
+      rect.origin.x += rect.size.w - physical_filled;
     }
-    rect.size.w = filled;
+    rect.size.w = physical_filled;
   } else {
     if (!segment->forward) {
-      rect.origin.y += rect.size.h - filled;
+      rect.origin.y += rect.size.h - physical_filled;
     }
-    rect.size.h = filled;
+    rect.size.h = physical_filled;
   }
   return rect;
 }
 
 // Splits the ring into the straight runs its fill travels, clockwise from
 // twelve o'clock (anticlockwise when inverted): half the top band, one side,
-// the bottom band, the other side, then the rest of the top band. Edges are
-// taken from the two rectangles rather than from a halved thickness, so the
-// runs tile the ring exactly whatever the rounding.
+// the bottom band, the other side, then the rest of the top band. Adjacent runs
+// overlap at corners while progress follows the outer edge, so every completed
+// run includes its destination corner.
 static int polar_segments(GRect outer, GRect inner, bool inverted,
                           PolarSegment segments[5]) {
   int left = outer.origin.x;
@@ -524,30 +552,46 @@ static int polar_segments(GRect outer, GRect inner, bool inverted,
   int inner_top = inner.origin.y;
   int inner_bottom = inner_top + inner.size.h;
   int centre_x = (left + right) / 2;
-  int band_height = inner_top - top;
-  int side_height = inner_bottom - inner_top;
+  int top_height = inner_top - top;
+  int bottom_height = bottom - inner_bottom;
+  int left_width = inner_left - left;
+  int right_width = right - inner_right;
+  int top_left_width = centre_x - left;
+  int top_right_width = right - centre_x;
 
-  GRect top_right = GRect(centre_x, top, right - centre_x, band_height);
-  GRect top_left = GRect(left, top, centre_x - left, band_height);
-  GRect right_band =
-      GRect(inner_right, inner_top, right - inner_right, side_height);
-  GRect left_band = GRect(left, inner_top, inner_left - left, side_height);
+  GRect top_right = GRect(centre_x, top, top_right_width, top_height);
+  GRect top_left = GRect(left, top, top_left_width, top_height);
+  // Side fills overlap the top or bottom corner already painted by the
+  // preceding horizontal run. Their new portion includes the opposite corner,
+  // so a completed vertical run visibly reaches the very bottom or top.
+  GRect right_band = GRect(inner_right, top, right_width, bottom - top);
+  GRect left_band = GRect(left, top, left_width, bottom - top);
   GRect bottom_band =
       GRect(left, inner_bottom, right - left, bottom - inner_bottom);
 
   int index = 0;
   if (inverted) {
-    segments[index++] = (PolarSegment){top_left, true, false, true};
-    segments[index++] = (PolarSegment){left_band, false, true, false};
-    segments[index++] = (PolarSegment){bottom_band, true, true, false};
-    segments[index++] = (PolarSegment){right_band, false, false, false};
-    segments[index++] = (PolarSegment){top_right, true, false, true};
+    segments[index++] =
+        (PolarSegment){top_left, true, false, true, 0};
+    segments[index++] =
+        (PolarSegment){left_band, false, true, true, top_height};
+    segments[index++] =
+        (PolarSegment){bottom_band, true, true, false, left_width};
+    segments[index++] =
+        (PolarSegment){right_band, false, false, true, bottom_height};
+    segments[index++] =
+        (PolarSegment){top_right, true, false, true, right_width};
   } else {
-    segments[index++] = (PolarSegment){top_right, true, true, true};
-    segments[index++] = (PolarSegment){right_band, false, true, false};
-    segments[index++] = (PolarSegment){bottom_band, true, false, false};
-    segments[index++] = (PolarSegment){left_band, false, false, false};
-    segments[index++] = (PolarSegment){top_left, true, true, true};
+    segments[index++] =
+        (PolarSegment){top_right, true, true, true, 0};
+    segments[index++] =
+        (PolarSegment){right_band, false, true, true, top_height};
+    segments[index++] =
+        (PolarSegment){bottom_band, true, false, false, right_width};
+    segments[index++] =
+        (PolarSegment){left_band, false, false, true, bottom_height};
+    segments[index++] =
+        (PolarSegment){top_left, true, true, true, left_width};
   }
   return index;
 }
@@ -556,9 +600,10 @@ static int polar_segments(GRect outer, GRect inner, bool inverted,
 // in the middle: the wider the ring, the smaller the hole at the centre.
 #define RING_STEPS 3
 
-static void draw_polar(GContext *ctx, GRect bounds, const Series *series,
-                       int count, bool inverted, const Settings *settings,
-                       int animation_progress) {
+static void draw_polar_rectangular(GContext *ctx, GRect bounds,
+                                   const Series *series, int count,
+                                   bool inverted, const Settings *settings,
+                                   int animation_progress) {
   int units = RING_STEPS * count + 1;
 
   for (int index = 0; index < count; ++index) {
@@ -583,7 +628,7 @@ static void draw_polar(GContext *ctx, GRect bounds, const Series *series,
     int inner_bottom = inner_top + inner.size.h;
     int band_height = inner_top - top;
 
-    graphics_context_set_fill_color(ctx, settings->track_color);
+    graphics_context_set_fill_color(ctx, item->track_color);
     graphics_fill_rect(ctx, GRect(left, top, right - left, band_height), 0,
                        GCornerNone);
     graphics_fill_rect(
@@ -604,12 +649,13 @@ static void draw_polar(GContext *ctx, GRect bounds, const Series *series,
     for (int segment = 0; segment < segment_count; ++segment) {
       perimeter += segment_length(&segments[segment]);
     }
-    int remaining =
+    int filled_length =
         (perimeter * animated_ratio(item, animation_progress) + 500) / 1000;
+    int remaining = filled_length;
 
-    // The label straddles the seam, so the fill reaches it as two runs: one
-    // growing away from twelve o'clock, the other closing the lap.
-    GRect label_clips[2];
+    // The label straddles the seam and the side runs overlap its corner pixels,
+    // so up to four filled rectangles can cross the label's row.
+    GRect label_clips[4];
     int clip_count = 0;
     graphics_context_set_fill_color(ctx, item->bar_color);
     for (int segment = 0; segment < segment_count && remaining > 0; ++segment) {
@@ -624,7 +670,6 @@ static void draw_polar(GContext *ctx, GRect bounds, const Series *series,
       }
       remaining -= filled;
     }
-
     int max_text_width = BARS_MAX(1, right - left - 2);
     SmoothFontSpec font_spec =
         smooth_font_for_series(item, max_text_width, band_height);
@@ -635,6 +680,195 @@ static void draw_polar(GContext *ctx, GRect bounds, const Series *series,
     int text_height = font_spec.visible_height;
     int visible_y = top + (band_height - text_height) / 2;
     GRect frame = GRect(left + (right - left - text_width) / 2,
+                        visible_y - font_spec.top_offset, text_width + 3,
+                        font_spec.line_height + 2);
+    draw_smooth_text_letterwise(ctx, item->label, font_spec.font, frame,
+                                visible_y, text_height, item->text_color,
+                                item->text_on_bar_color, label_clips,
+                                clip_count, settings->text_outline,
+                                letter_spacing);
+  }
+}
+
+// How far from twelve o'clock the fill boundary crosses a row `height` above
+// the centre. The boundary is a ray, so it only meets that row while it is
+// still climbing; once it is not, or once it would land outside the ring, the
+// row is untouched on that side and `limit` is returned to say so.
+static int seam_reach(int height, int32_t angle, int limit) {
+  int32_t cosine = cos_lookup(angle);
+  if (cosine <= 0) {
+    return limit;
+  }
+  int32_t sine = sin_lookup(angle);
+  if (sine < 0) {
+    sine = -sine;
+  }
+  int64_t reach = (int64_t)height * sine / cosine;
+  return reach >= limit ? limit : (int)reach;
+}
+
+// Progress angles are always measured from twelve o'clock in the direction of
+// travel. This maps one such interval to the SDK's clockwise angle space.
+static void fill_round_progress_span(GContext *ctx, GRect area, int thickness,
+                                     bool inverted, int32_t from,
+                                     int32_t to, GColor color) {
+  if (to <= from) {
+    return;
+  }
+  graphics_context_set_fill_color(ctx, color);
+  if (inverted) {
+    graphics_fill_radial(ctx, area, GOvalScaleModeFitCircle, thickness,
+                         TRIG_MAX_ANGLE - to, TRIG_MAX_ANGLE - from);
+  } else {
+    graphics_fill_radial(ctx, area, GOvalScaleModeFitCircle, thickness, from,
+                         to);
+  }
+}
+
+// Extends a round-polar ring across another concentric annulus. This keeps both
+// its dark track and its animated angular progress continuous through the
+// otherwise empty outside or centre.
+static void draw_round_polar_extension(GContext *ctx, GPoint centre,
+                                       int outer_radius, int inner_radius,
+                                       const Series *item, bool inverted,
+                                       int animation_progress) {
+  int thickness = outer_radius - inner_radius;
+  if (thickness <= 0) {
+    return;
+  }
+
+  GRect area = GRect(centre.x - outer_radius, centre.y - outer_radius,
+                     outer_radius * 2, outer_radius * 2);
+  graphics_context_set_fill_color(ctx, item->track_color);
+  graphics_fill_radial(ctx, area, GOvalScaleModeFitCircle, thickness, 0,
+                       TRIG_MAX_ANGLE);
+
+  int32_t sweep =
+      TRIG_MAX_ANGLE * animated_ratio(item, animation_progress) / 1000;
+  fill_round_progress_span(ctx, area, thickness, inverted, 0, sweep,
+                           item->bar_color);
+}
+
+// Same nesting as draw_polar_rectangular, but the rings follow the screen's
+// circle instead of its corners, which is what a round watch wants.
+static void draw_polar_round(GContext *ctx, GRect bounds, const Series *series,
+                             int count, bool inverted, const Settings *settings,
+                             int animation_progress) {
+  int units = RING_STEPS * count + 1;
+  int centre_x = bounds.origin.x + bounds.size.w / 2;
+  int centre_y = bounds.origin.y + bounds.size.h / 2;
+  int radius = BARS_MIN(bounds.size.w, bounds.size.h) / 2;
+  GPoint centre = GPoint(centre_x, centre_y);
+
+  if (count > 0 &&
+      (settings->round_polar_fill & ROUND_POLAR_FILL_OUTSIDE)) {
+    int horizontal_extent =
+        BARS_MAX(centre_x - bounds.origin.x,
+                 bounds.origin.x + bounds.size.w - centre_x);
+    int vertical_extent =
+        BARS_MAX(centre_y - bounds.origin.y,
+                 bounds.origin.y + bounds.size.h - centre_y);
+    // One pixel past the floor of the diagonal guarantees that the annulus
+    // reaches every corner after integer rounding.
+    int outside_radius =
+        integer_sqrt(horizontal_extent * horizontal_extent +
+                     vertical_extent * vertical_extent) +
+        1;
+    // Continue underneath the whole first ring instead of stopping at its
+    // outer edge. Two radial calls rasterized at the same nominal radius can
+    // otherwise leave a jagged one-pixel seam between them.
+    int first_inner = radius * (units - RING_STEPS) / units;
+    draw_round_polar_extension(ctx, centre, outside_radius, first_inner,
+                               &series[0], inverted, animation_progress);
+  }
+
+  if (count > 0 &&
+      (settings->round_polar_fill & ROUND_POLAR_FILL_CENTRE)) {
+    // Likewise, paint underneath the whole last ring so the centre and ring
+    // share pixels rather than meeting at two independently rounded edges.
+    int last_outer =
+        radius * (units - RING_STEPS * (count - 1)) / units;
+    if (!settings->seamless) {
+      last_outer = BARS_MAX(0, last_outer - 1);
+    }
+    draw_round_polar_extension(ctx, centre, last_outer, 0, &series[count - 1],
+                               inverted, animation_progress);
+  }
+
+  for (int index = 0; index < count; ++index) {
+    const Series *item = &series[index];
+    int outer = radius * (units - RING_STEPS * index) / units;
+    int inner = radius * (units - RING_STEPS * (index + 1)) / units;
+    if (!settings->seamless) {
+      // Rings are far thinner than a row, so one pixel is groove enough.
+      outer -= 1;
+    }
+    int thickness = BARS_MAX(1, outer - inner);
+    // Radius the label sits on: the middle of the ring's thickness.
+    int middle = outer - thickness / 2;
+    GRect ring = GRect(centre_x - outer, centre_y - outer, outer * 2, outer * 2);
+
+    graphics_context_set_fill_color(ctx, item->track_color);
+    graphics_fill_radial(ctx, ring, GOvalScaleModeFitCircle, thickness, 0,
+                         TRIG_MAX_ANGLE);
+
+    int32_t sweep =
+        TRIG_MAX_ANGLE * animated_ratio(item, animation_progress) / 1000;
+    fill_round_progress_span(ctx, ring, thickness, inverted, 0, sweep,
+                             item->bar_color);
+
+    // Width of the ring at the label's height, rather than the ring's full
+    // diameter: the top of a circle is narrower than its middle.
+    int band_top = centre_y - outer;
+    int half_chord =
+        integer_sqrt(BARS_MAX(0, outer * outer - middle * middle));
+    int max_text_width = BARS_MAX(1, 2 * half_chord - 2);
+    SmoothFontSpec font_spec =
+        smooth_font_for_series(item, max_text_width, thickness);
+    int letter_spacing = condensed_letter_spacing(
+        item->label, font_spec.font, font_spec.line_height, max_text_width);
+    int text_width = smooth_spaced_width(item->label, font_spec.font,
+                                         font_spec.line_height, letter_spacing);
+    int text_height = font_spec.visible_height;
+    int visible_y = band_top + (thickness - text_height) / 2;
+
+    // The label straddles twelve o'clock, so the fill reaches it as two runs:
+    // one leaving the seam clockwise, the other arriving from anticlockwise to
+    // close the lap. Both are worked out along the label's own row.
+    GRect label_clips[2];
+    int clip_count = 0;
+    int label_height = centre_y - (visible_y + text_height / 2);
+    int label_half_chord = integer_sqrt(
+        BARS_MAX(0, outer * outer - label_height * label_height));
+    if (sweep > 0) {
+      int reach = sweep >= TRIG_MAX_ANGLE / 4
+                      ? label_half_chord
+                      : seam_reach(label_height, sweep, label_half_chord);
+      if (reach > 0) {
+        label_clips[clip_count++] =
+            GRect(centre_x, visible_y, BARS_MIN(reach, label_half_chord),
+                  text_height);
+      }
+    }
+    // The seam's other side fills last of all, so this run grows inwards from
+    // the ring's left edge rather than outwards from twelve o'clock.
+    if (sweep > 3 * (TRIG_MAX_ANGLE / 4)) {
+      int trail = seam_reach(label_height, TRIG_MAX_ANGLE - sweep,
+                            label_half_chord);
+      if (trail < label_half_chord) {
+        label_clips[clip_count++] =
+            GRect(centre_x - label_half_chord, visible_y,
+                  label_half_chord - trail, text_height);
+      }
+    }
+    if (inverted) {
+      for (int clip = 0; clip < clip_count; ++clip) {
+        int right = label_clips[clip].origin.x + label_clips[clip].size.w;
+        label_clips[clip].origin.x = 2 * centre_x - right;
+      }
+    }
+
+    GRect frame = GRect(centre_x - text_width / 2,
                         visible_y - font_spec.top_offset, text_width + 3,
                         font_spec.line_height + 2);
     draw_smooth_text_letterwise(ctx, item->label, font_spec.font, frame,
@@ -664,13 +898,21 @@ void renderer_draw(GContext *ctx, GRect full_bounds, GRect content_bounds,
       draw_vertical(ctx, content_bounds, series, count, true, settings,
                     animation_progress);
       break;
-    case STYLE_POLAR:
-      draw_polar(ctx, content_bounds, series, count, false, settings,
-                 animation_progress);
+    case STYLE_POLAR_RECTANGULAR:
+      draw_polar_rectangular(ctx, content_bounds, series, count, false,
+                             settings, animation_progress);
       break;
-    case STYLE_POLAR_INVERTED:
-      draw_polar(ctx, content_bounds, series, count, true, settings,
-                 animation_progress);
+    case STYLE_POLAR_RECTANGULAR_INVERTED:
+      draw_polar_rectangular(ctx, content_bounds, series, count, true,
+                             settings, animation_progress);
+      break;
+    case STYLE_POLAR_ROUND:
+      draw_polar_round(ctx, content_bounds, series, count, false, settings,
+                       animation_progress);
+      break;
+    case STYLE_POLAR_ROUND_INVERTED:
+      draw_polar_round(ctx, content_bounds, series, count, true, settings,
+                       animation_progress);
       break;
     case STYLE_HORIZONTAL:
     default:

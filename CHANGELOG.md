@@ -1,5 +1,53 @@
 # Changelog
 
+## [0.5.0] - 2026-07-25
+
+### Added
+
+- A track colour per bar, starting as a much darker shade of that bar's own
+  colour instead of one shared background. The configuration page gains a
+  fourth colour per bar.
+- Daylight/night bar: progress through the current stretch of day or night,
+  alternating colours at each transition and labelling the next sunrise or
+  sunset explicitly.
+- Moon bar: progress through the current stretch of the moon being up or down,
+  alternating colours at each transition and labelling the next moonrise or
+  moonset explicitly.
+- Steps bar, filling towards a configurable goal from today's Pebble Health
+  count.
+- Custom bar counting from one date to another, labelled from a template:
+  `{d}` days left, `{t}` days in the span, `{p}` percent done. Anything else in
+  the template is shown as typed.
+- Optional single "HH:MM" bar in place of separate hour and minute bars, taking
+  the hour's slot and colours and filling across the day.
+- Round polar layout, clockwise and anticlockwise: concentric circular rings
+  rather than rings squared off to the screen, for Pebble Round 2.
+- Optional round-polar fill extending the first ring outside the circle, the
+  last ring into its centre, or both. A single visible ring can fill both.
+- Matching default text colours on each bar's track and filled portion, while
+  keeping both roles independently configurable.
+- `gabbro` (Pebble Round 2, 180 × 180) as a build target alongside `emery`.
+- Location section in the settings: coordinates come from the phone, or can be
+  typed in degrees when it will not give them up. The sun and moon are worked
+  out on the watch from the stored position, so those bars keep running while
+  the phone is away.
+
+### Changed
+
+- The bar order travels and is stored as one byte per bar rather than packed
+  into the nibbles of a single integer, which ran out of room past seven bars.
+  Existing installs keep their order and visibility, with the new bars added
+  hidden behind them.
+- The single face-wide track colour is retired in favour of the per-bar tracks,
+  so bars now sit on a dark shade of their own colour by default.
+- Each bar's label is sized against the widest value it can show rather than
+  the current one, so the text no longer resizes as a value shortens.
+- The original polar style is now named rectangular polar, and its progress
+  follows the complete outer perimeter of every ring, including the vertical
+  sides and their destination corners.
+- Text placement is disabled in the configuration for polar styles, whose
+  labels always stay fixed at the top of their ring.
+
 ## [0.3.0] - 2026-07-25
 
 ### Added
@@ -72,4 +120,4 @@
 - Initial Pebble Time 2 implementation.
 - Four bar chart modes, native Emery sizing, and Quick View support.
 - Offline configuration page with per-series colours.
-- Optional seconds, battery, animation, and Bluetooth vibrations.
+- Optional seconds, battery, and animation.

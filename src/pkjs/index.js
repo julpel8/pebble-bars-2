@@ -5,20 +5,38 @@ var STORAGE_KEY = 'bars2Settings';
 // tables must stay in sync.
 var SERIES = [
   {label: 'Hour', bar: 'SETTING_HOUR_BAR_COLOR',
-   text: 'SETTING_HOUR_TEXT_COLOR', onBar: 'SETTING_HOUR_TEXT_ON_BAR_COLOR'},
+   track: 'SETTING_HOUR_TRACK_COLOR', text: 'SETTING_HOUR_TEXT_COLOR',
+   onBar: 'SETTING_HOUR_TEXT_ON_BAR_COLOR'},
   {label: 'Minute', bar: 'SETTING_MINUTE_BAR_COLOR',
-   text: 'SETTING_MINUTE_TEXT_COLOR', onBar: 'SETTING_MINUTE_TEXT_ON_BAR_COLOR'},
+   track: 'SETTING_MINUTE_TRACK_COLOR', text: 'SETTING_MINUTE_TEXT_COLOR',
+   onBar: 'SETTING_MINUTE_TEXT_ON_BAR_COLOR'},
   {label: 'Month', bar: 'SETTING_MONTH_BAR_COLOR',
-   text: 'SETTING_MONTH_TEXT_COLOR', onBar: 'SETTING_MONTH_TEXT_ON_BAR_COLOR'},
+   track: 'SETTING_MONTH_TRACK_COLOR', text: 'SETTING_MONTH_TEXT_COLOR',
+   onBar: 'SETTING_MONTH_TEXT_ON_BAR_COLOR'},
   {label: 'Date', bar: 'SETTING_DATE_BAR_COLOR',
-   text: 'SETTING_DATE_TEXT_COLOR', onBar: 'SETTING_DATE_TEXT_ON_BAR_COLOR'},
+   track: 'SETTING_DATE_TRACK_COLOR', text: 'SETTING_DATE_TEXT_COLOR',
+   onBar: 'SETTING_DATE_TEXT_ON_BAR_COLOR'},
   {label: 'Weekday', bar: 'SETTING_DAY_BAR_COLOR',
-   text: 'SETTING_DAY_TEXT_COLOR', onBar: 'SETTING_DAY_TEXT_ON_BAR_COLOR'},
+   track: 'SETTING_DAY_TRACK_COLOR', text: 'SETTING_DAY_TEXT_COLOR',
+   onBar: 'SETTING_DAY_TEXT_ON_BAR_COLOR'},
   {label: 'Seconds', bar: 'SETTING_SECOND_BAR_COLOR',
-   text: 'SETTING_SECOND_TEXT_COLOR', onBar: 'SETTING_SECOND_TEXT_ON_BAR_COLOR'},
+   track: 'SETTING_SECOND_TRACK_COLOR', text: 'SETTING_SECOND_TEXT_COLOR',
+   onBar: 'SETTING_SECOND_TEXT_ON_BAR_COLOR'},
   {label: 'Battery', bar: 'SETTING_BATTERY_BAR_COLOR',
-   text: 'SETTING_BATTERY_TEXT_COLOR',
-   onBar: 'SETTING_BATTERY_TEXT_ON_BAR_COLOR'}
+   track: 'SETTING_BATTERY_TRACK_COLOR', text: 'SETTING_BATTERY_TEXT_COLOR',
+   onBar: 'SETTING_BATTERY_TEXT_ON_BAR_COLOR'},
+  {label: 'Daylight / night', bar: 'SETTING_DAYLIGHT_BAR_COLOR',
+   track: 'SETTING_DAYLIGHT_TRACK_COLOR', text: 'SETTING_DAYLIGHT_TEXT_COLOR',
+   onBar: 'SETTING_DAYLIGHT_TEXT_ON_BAR_COLOR'},
+  {label: 'Moon', bar: 'SETTING_MOON_BAR_COLOR',
+   track: 'SETTING_MOON_TRACK_COLOR', text: 'SETTING_MOON_TEXT_COLOR',
+   onBar: 'SETTING_MOON_TEXT_ON_BAR_COLOR'},
+  {label: 'Steps', bar: 'SETTING_STEPS_BAR_COLOR',
+   track: 'SETTING_STEPS_TRACK_COLOR', text: 'SETTING_STEPS_TEXT_COLOR',
+   onBar: 'SETTING_STEPS_TEXT_ON_BAR_COLOR'},
+  {label: 'Custom', bar: 'SETTING_CUSTOM_BAR_COLOR',
+   track: 'SETTING_CUSTOM_TRACK_COLOR', text: 'SETTING_CUSTOM_TEXT_COLOR',
+   onBar: 'SETTING_CUSTOM_TEXT_ON_BAR_COLOR'}
 ];
 
 // Ported from date_part_order in src/c/languages.c (W weekday, D date,
@@ -35,9 +53,26 @@ var DATE_ORDER_BY_LANGUAGE = {
 };
 var DATE_PART_SERIES = {W: 4, D: 3, M: 2};
 
+var PALETTE_LEVELS = ['00', '55', 'AA', 'FF'];
+
+// Mirrors darker_color() in src/c/settings.c: the palette has four levels per
+// channel, so halving the level index is the darkest step that still keeps a
+// colour recognisably itself.
+function darkerHex(value) {
+  var source = String(value || '000000').replace('#', '');
+  var result = '';
+  for (var index = 0; index < 3; index++) {
+    var channel = parseInt(source.substr(index * 2, 2), 16);
+    var level = Math.round((isNaN(channel) ? 0 : channel) / 85);
+    result += PALETTE_LEVELS[Math.floor(level / 2)];
+  }
+  return result;
+}
+
 var DEFAULTS = {
   SETTING_STYLE: 0,
   SETTING_TEXT_PLACEMENT: 2,
+  SETTING_ROUND_POLAR_FILL: 0,
   SETTING_CLOCK_FORMAT: 0,
   SETTING_LANGUAGE: 0,
   SETTING_CLOCK_REFRESH: 60,
@@ -45,17 +80,25 @@ var DEFAULTS = {
   SETTING_SMOOTH_PROGRESS: 1,
   // Display order (SeriesId values) and per-series visibility, the latter
   // indexed by SeriesId rather than by position.
-  SETTING_SERIES_ORDER: [0, 1, 5, 4, 2, 3, 6],
-  SETTING_SERIES_VISIBLE: [1, 1, 1, 1, 1, 0, 0],
+  SETTING_SERIES_ORDER: [0, 1, 5, 4, 2, 3, 6, 7, 8, 9, 10],
+  SETTING_SERIES_VISIBLE: [1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0],
   SETTING_FULL_DATE_NAMES: 0,
   SETTING_WEEK_STARTS_SUNDAY: 0,
   SETTING_SEAMLESS_BARS: 1,
   SETTING_TEXT_OUTLINE: 0,
   SETTING_ANIMATE: 1,
-  SETTING_VIBE_DISCONNECT: 1,
-  SETTING_VIBE_RECONNECT: 0,
+  SETTING_MERGE_HOUR_MINUTE: 0,
+  SETTING_STEP_GOAL: 10000,
+  SETTING_CUSTOM_LABEL: '{d}',
+  SETTING_CUSTOM_START_DAY: 0,
+  SETTING_CUSTOM_TARGET_DAY: 0,
+  // Microdegrees, filled in from the phone unless the coordinates are typed by
+  // hand. The watch needs them for the daylight and moon bars.
+  SETTING_USE_PHONE_LOCATION: 1,
+  SETTING_LATITUDE: 0,
+  SETTING_LONGITUDE: 0,
+  SETTING_LOCATION_VALID: 0,
   SETTING_BACKGROUND_COLOR: '000000',
-  SETTING_TRACK_COLOR: '000000',
   SETTING_HOUR_BAR_COLOR: '00FF00',
   SETTING_HOUR_TEXT_COLOR: '00FF00',
   SETTING_MINUTE_BAR_COLOR: '00AA55',
@@ -69,15 +112,39 @@ var DEFAULTS = {
   SETTING_SECOND_BAR_COLOR: 'AA00FF',
   SETTING_SECOND_TEXT_COLOR: 'AA00FF',
   SETTING_BATTERY_BAR_COLOR: '00FFFF',
-  SETTING_BATTERY_TEXT_COLOR: 'FFFFFF',
+  SETTING_BATTERY_TEXT_COLOR: '00FFFF',
+  SETTING_DAYLIGHT_BAR_COLOR: 'FFAA00',
+  SETTING_DAYLIGHT_TEXT_COLOR: 'FFAA00',
+  SETTING_MOON_BAR_COLOR: 'AAAAFF',
+  SETTING_MOON_TEXT_COLOR: 'AAAAFF',
+  SETTING_STEPS_BAR_COLOR: '55FF00',
+  SETTING_STEPS_TEXT_COLOR: '55FF00',
+  SETTING_CUSTOM_BAR_COLOR: 'FF00AA',
+  SETTING_CUSTOM_TEXT_COLOR: 'FF00AA',
   SETTING_HOUR_TEXT_ON_BAR_COLOR: 'AAFFAA',
   SETTING_MINUTE_TEXT_ON_BAR_COLOR: '55FFFF',
   SETTING_MONTH_TEXT_ON_BAR_COLOR: '55AAFF',
   SETTING_DATE_TEXT_ON_BAR_COLOR: '555500',
   SETTING_DAY_TEXT_ON_BAR_COLOR: 'FFAAAA',
   SETTING_SECOND_TEXT_ON_BAR_COLOR: 'FFAAFF',
-  SETTING_BATTERY_TEXT_ON_BAR_COLOR: 'FFFFFF'
+  SETTING_BATTERY_TEXT_ON_BAR_COLOR: 'FFFFFF',
+  SETTING_DAYLIGHT_TEXT_ON_BAR_COLOR: '552A00',
+  SETTING_MOON_TEXT_ON_BAR_COLOR: '000055',
+  SETTING_STEPS_TEXT_ON_BAR_COLOR: '005500',
+  SETTING_CUSTOM_TEXT_ON_BAR_COLOR: 'FFAAFF'
 };
+
+// Every bar starts on a much darker shade of its own colour. Its text also
+// starts with the same colour on the track and on the filled portion. Both are
+// derived so the paired defaults never drift apart.
+SERIES.forEach(function (series) {
+  DEFAULTS[series.track] = darkerHex(DEFAULTS[series.bar]);
+  DEFAULTS[series.text] = DEFAULTS[series.onBar];
+});
+
+// Kept in phone storage but never sent: the watch has no use for it, and an
+// undeclared key would fail the whole message.
+var PHONE_ONLY_KEYS = {SETTING_USE_PHONE_LOCATION: true};
 
 // Keep this order in sync with src/c/languages.h and Solar Earth's language
 // setting so a saved language index has the same meaning in both watchfaces.
@@ -101,7 +168,7 @@ function copyObject(source) {
 }
 
 // Drops ids that are out of range or repeated and appends whatever is missing,
-// so a truncated or corrupt saved order still yields all seven series.
+// so a truncated or corrupt saved order still yields every series.
 function normalizedOrder(order) {
   var source = Array.isArray(order) ? order : [];
   var result = [];
@@ -195,16 +262,6 @@ function saveSettings(settings) {
   }
 }
 
-// The order travels as one integer, series id 0 in the most significant
-// nibble, matching unpack_series_order() in src/c/settings.c.
-function packSeriesOrder(order) {
-  var packed = 0;
-  order.forEach(function (id) {
-    packed = packed * 16 + id;
-  });
-  return packed;
-}
-
 function seriesVisibleMask(visible) {
   var mask = 0;
   visible.forEach(function (shown, id) {
@@ -220,11 +277,18 @@ function messagePayload(settings) {
   // Iterates the defaults, not the settings: anything the manifest does not
   // declare must never reach sendAppMessage().
   Object.keys(DEFAULTS).forEach(function (key) {
+    if (PHONE_ONLY_KEYS[key]) {
+      return;
+    }
     var value = settings[key];
     if (key === 'SETTING_SERIES_ORDER') {
-      payload[key] = packSeriesOrder(normalizedOrder(value));
+      // One byte per series: eleven of them no longer fit in the nibbles of a
+      // single integer.
+      payload[key] = normalizedOrder(value);
     } else if (key === 'SETTING_SERIES_VISIBLE') {
       payload[key] = seriesVisibleMask(normalizedVisible(value));
+    } else if (key === 'SETTING_CUSTOM_LABEL') {
+      payload[key] = String(value == null ? '' : value);
     } else if (/_COLOR$/.test(key)) {
       payload[key] = parseInt(String(value).replace('#', ''), 16);
     } else {
@@ -243,6 +307,32 @@ function sendSettings(settings) {
     function (error) {
       console.log('Unable to send Bars 2 settings: ' + JSON.stringify(error));
     }
+  );
+}
+
+// The watch has no receiver of its own, so the daylight and moon bars work from
+// whatever fix was last stored. A refusal or a timeout leaves the previous one
+// in place rather than blanking the bars.
+function refreshLocation(settings) {
+  if (!Number(settings.SETTING_USE_PHONE_LOCATION)) {
+    return;
+  }
+  if (typeof navigator === 'undefined' || !navigator.geolocation) {
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    function (position) {
+      settings.SETTING_LATITUDE = Math.round(position.coords.latitude * 1000000);
+      settings.SETTING_LONGITUDE =
+          Math.round(position.coords.longitude * 1000000);
+      settings.SETTING_LOCATION_VALID = 1;
+      saveSettings(settings);
+      sendSettings(settings);
+    },
+    function (error) {
+      console.log('Bars 2 location unavailable: ' + error.message);
+    },
+    {timeout: 15000, maximumAge: 6 * 60 * 60 * 1000}
   );
 }
 
@@ -285,7 +375,15 @@ function configurationHtml(settings) {
     'h2+.row,h2+.color-row{border-top:0}.row span,.color-row span{line-height:1.2}',
     'select{max-width:55%;background:#26292e;color:#fff;border:1px solid #444850;',
     'border-radius:7px;padding:8px;font-size:15px}',
+    '.row.disabled{opacity:.45}.row.disabled select{cursor:not-allowed}',
     'input[type=checkbox]{width:24px;height:24px;accent-color:#55d57f}',
+    'input[type=text],input[type=number],input[type=date]{max-width:55%;',
+    'background:#26292e;color:#fff;border:1px solid #444850;border-radius:7px;',
+    'padding:8px;font-size:15px}',
+    '.chips{display:flex;flex-wrap:wrap;gap:8px;padding:0 15px 14px}',
+    '.chip{min-height:36px;padding:0 12px;border:1px solid #444850;',
+    'border-radius:8px;background:#26292e;color:#f6f6f6;font-size:14px;',
+    'font-weight:400}',
     '.color-field{padding:8px 15px;border-top:1px solid #2a2d32}',
     'h2+.color-field{border-top:0}',
     '.si{border-top:1px solid #2a2d32;background:#1a1c20}',
@@ -338,7 +436,7 @@ function configurationHtml(settings) {
     'font-weight:700;font-size:15px}',
     '#cfmCancel{background:#30333a;color:#fff}#cfmOk{background:#aaff55;color:#101113}',
     '</style></head><body>',
-    '<header><h1>BARS 2</h1><p>Native Pebble Time 2 settings</p></header>',
+    '<header><h1>BARS 2</h1><p>Native Pebble settings</p></header>',
     '<main>',
     '<section><h2>Layout</h2>',
     '<label class="row"><span>Bar style</span><select data-key="SETTING_STYLE">',
@@ -346,15 +444,28 @@ function configurationHtml(settings) {
     '<option value="1">Horizontal inverted</option>',
     '<option value="2">Vertical</option>',
     '<option value="3">Vertical inverted</option>',
-    '<option value="4">Polar</option>',
-    '<option value="5">Polar inverted</option>',
+    '<option value="4">Polar rectangular</option>',
+    '<option value="5">Polar rectangular inverted</option>',
+    '<option value="6">Polar round</option>',
+    '<option value="7">Polar round inverted</option>',
     '</select></label>',
-    '<p class="hint">Polar nests the bars as rectangular rings that fit the '
-      + 'screen: the first bar in the list below is the outer ring, and each '
-      + 'one fills from twelve o’clock — clockwise, or anticlockwise when '
-      + 'inverted. Labels sit in the top band of their ring.</p>',
+    '<p class="hint">Polar nests the bars as rings: the first bar in the list '
+      + 'below is the outer ring, and each one fills from twelve o’clock — '
+      + 'clockwise, or anticlockwise when inverted. Labels sit at the top of '
+      + 'their ring. The rectangular variant follows the screen’s edges; the '
+      + 'round one keeps the rings circular, which suits a round watch.</p>',
+    '<label class="row"><span>Round polar fill</span>',
+    '<select data-key="SETTING_ROUND_POLAR_FILL" id="roundPolarFill">',
+    '<option value="0">None</option>',
+    '<option value="1">Outside — first bar</option>',
+    '<option value="2">Centre — last bar</option>',
+    '<option value="3">Outside and centre</option>',
+    '</select></label>',
+    '<p class="hint">Extends the first visible ring into the space outside the '
+      + 'circle, the last visible ring into its centre, or both. With one '
+      + 'visible bar, the same bar can fill both spaces.</p>',
     '<label class="row"><span>Text placement</span>',
-    '<select data-key="SETTING_TEXT_PLACEMENT">',
+    '<select data-key="SETTING_TEXT_PLACEMENT" id="textPlacement">',
     '<option value="1">Outside — start</option>',
     '<option value="5">Outside — middle</option>',
     '<option value="0">Outside — end</option>',
@@ -394,6 +505,26 @@ function configurationHtml(settings) {
     '<option value="1">24-hour</option>',
     '<option value="2">12-hour</option>',
     '</select></label>',
+    '<label class="row"><span>Merge hour and minute</span>',
+    '<input type="checkbox" data-key="SETTING_MERGE_HOUR_MINUTE"></label>',
+    '<p class="hint">Draws one “HH:MM” bar in the hour’s place instead of two, '
+      + 'filling across the day. Needs both the hour and the minute bar '
+      + 'switched on below.</p>',
+    '<label class="row"><span>Step goal</span>',
+    '<select data-key="SETTING_STEP_GOAL">',
+    '<option value="2000">2 000 steps</option>',
+    '<option value="4000">4 000 steps</option>',
+    '<option value="6000">6 000 steps</option>',
+    '<option value="8000">8 000 steps</option>',
+    '<option value="10000">10 000 steps</option>',
+    '<option value="12000">12 000 steps</option>',
+    '<option value="15000">15 000 steps</option>',
+    '<option value="20000">20 000 steps</option>',
+    '<option value="25000">25 000 steps</option>',
+    '<option value="30000">30 000 steps</option>',
+    '</select></label>',
+    '<p class="hint">The steps bar fills towards this goal and shows today’s '
+      + 'count.</p>',
     '<label class="row"><span>Clock refresh</span>',
     '<select data-key="SETTING_CLOCK_REFRESH">',
     '<option value="1">Every second</option>',
@@ -412,21 +543,45 @@ function configurationHtml(settings) {
     '<label class="row"><span>Leading zero for hour</span>',
     '<input type="checkbox" data-key="SETTING_LEADING_ZERO"></label>',
     '</section>',
-    '<section><h2>Bluetooth</h2>',
-    '<label class="row"><span>Vibrate on disconnect</span>',
-    '<input type="checkbox" data-key="SETTING_VIBE_DISCONNECT"></label>',
-    '<label class="row"><span>Vibrate on reconnect</span>',
-    '<input type="checkbox" data-key="SETTING_VIBE_RECONNECT"></label>',
+    '<section><h2>Location</h2>',
+    '<label class="row"><span>Use phone location</span>',
+    '<input type="checkbox" data-key="SETTING_USE_PHONE_LOCATION"></label>',
+    '<label class="row"><span>Latitude</span>',
+    '<input type="number" data-key="SETTING_LATITUDE" data-scale="1000000" ',
+    'step="0.0001" min="-90" max="90"></label>',
+    '<label class="row"><span>Longitude</span>',
+    '<input type="number" data-key="SETTING_LONGITUDE" data-scale="1000000" ',
+    'step="0.0001" min="-180" max="180"></label>',
+    '<p class="hint">The daylight/night and moon bars are worked out on the '
+      + 'watch from these coordinates, so they keep running with the phone '
+      + 'away. Their two colours alternate after each rise and set; the label '
+      + 'names the next event and its time. Leave “use phone location” on to '
+      + 'have the coordinates filled in for you, '
+      + 'or turn it off and type them in degrees — south and west are '
+      + 'negative.</p>',
+    '</section>',
+    '<section><h2>Custom bar</h2>',
+    '<label class="row"><span>Label</span>',
+    '<input type="text" data-key="SETTING_CUSTOM_LABEL" maxlength="16"></label>',
+    '<div class="chips" id="tpl"></div>',
+    '<p class="hint">{d} is the days left, {t} the days in the span and {p} '
+      + 'the percentage done. Anything else is shown as typed.</p>',
+    '<label class="row"><span>Counting from</span>',
+    '<input type="date" data-key="SETTING_CUSTOM_START_DAY"></label>',
+    '<label class="row"><span>Counting to</span>',
+    '<input type="date" data-key="SETTING_CUSTOM_TARGET_DAY"></label>',
+    '<p class="hint">The bar fills from the first date to the second. Until '
+      + 'both are set it shows “--”.</p>',
     '</section>',
     '<section><h2>Background</h2>',
     colorFieldHtml('SETTING_BACKGROUND_COLOR', 'Background'),
-    colorFieldHtml('SETTING_TRACK_COLOR', 'Bar track'),
-    '<p class="hint">A black track reproduces the clean look of the original face.</p>',
+    '<p class="hint">Each bar has its own track, set below and starting as a '
+      + 'much darker shade of the bar’s colour.</p>',
     '</section>',
     '<section><h2>Bars</h2>',
     '<div id="list"></div>',
     '<p class="hint">Drag ≡ to reorder the bars, untick one to hide it, and '
-      + 'tap a row to open its three colours. At least one bar stays on.</p>',
+      + 'tap a row to configure its four colours. At least one bar stays on.</p>',
     '</section>',
     '</main>',
     '<div class="actions"><button id="reset" type="button">Reset</button>',
@@ -440,10 +595,32 @@ function configurationHtml(settings) {
     'var defaults=', safeJson(DEFAULTS), ';',
     'var SERIES=', safeJson(SERIES), ';',
     'function fields(){return document.querySelectorAll("[data-key]")}',
+    // Dates travel as whole days since 1970-01-01, matching the day numbers
+    // series.c counts in.
+    'function dayFromDate(v){if(!v){return 0}',
+    'var p=String(v).split("-");if(p.length!==3){return 0}',
+    'var t=Date.UTC(Number(p[0]),Number(p[1])-1,Number(p[2]));',
+    'if(isNaN(t)){return 0}return Math.floor(t/86400000)}',
+    'function dateFromDay(n){n=Number(n);if(!n){return ""}',
+    'return new Date(n*86400000).toISOString().slice(0,10)}',
+    'function scaleOf(el){return Number(el.getAttribute("data-scale"))||1}',
     'function apply(values){var list=fields();for(var i=0;i<list.length;i++){',
     'var el=list[i],key=el.getAttribute("data-key"),value=values[key];',
     'if(el.type==="checkbox"){el.checked=Number(value)===1}',
+    'else if(el.type==="date"){el.value=dateFromDay(value)}',
+    'else if(el.type==="number"){el.value=String(Number(value||0)/scaleOf(el))}',
+    'else if(el.type==="text"){el.value=value==null?"":String(value)}',
     'else{el.value=String(value)}}}',
+    'function syncStyleOptions(){',
+    'var style=document.querySelector("[data-key=SETTING_STYLE]");',
+    'var placement=document.getElementById("textPlacement");',
+    'var roundFill=document.getElementById("roundPolarFill");',
+    'var polar=Number(style.value)>=4;',
+    'placement.disabled=polar;',
+    'placement.parentNode.classList[polar?"add":"remove"]("disabled");',
+    'var round=Number(style.value)===6||Number(style.value)===7;',
+    'roundFill.disabled=!round;',
+    'roundFill.parentNode.classList[round?"remove":"add"]("disabled")}',
     // Swatch colour picker: the 64-colour Pebble palette, ported from
     // solar-earth. Colours live in `colors` and are merged in collect().
     'var PEBBLE_LEVELS=["00","55","AA","FF"];',
@@ -462,15 +639,20 @@ function configurationHtml(settings) {
     'var btn=document.createElement("button");btn.type="button";btn.className="swatch-btn";',
     'btn.style.background="#"+hex(colors[key]);',
     'var g=document.createElement("div");g.className="swatches collapsed";',
-    'PEBBLE_COLORS.forEach(function(c){var sw=document.createElement("div");',
+    // Sixty-four swatches across fifty-six pickers is far too much markup to
+    // build up front, so a grid is filled the first time it opens.
+    'var filled=false;',
+    'function fill(){PEBBLE_COLORS.forEach(function(c){',
+    'var sw=document.createElement("div");',
     'sw.className=(c===hex(colors[key]))?"swatch sel":"swatch";',
     'sw.style.background="#"+c;sw.title="#"+c;sw.onclick=function(){',
-    'colors[key]=c;btn.style.background="#"+c;colorChanged(key,c);',
+    'colors[key]=c;colorChanged(key,c);btn.style.background="#"+c;',
     'var kids=g.children;',
     'for(var i=0;i<kids.length;i++){kids[i].className="swatch"}',
     'sw.className="swatch sel";g.className="swatches collapsed";openGrid=null};',
-    'g.appendChild(sw)});',
-    'btn.onclick=function(){var willOpen=g.classList.contains("collapsed");',
+    'g.appendChild(sw)})}',
+    'btn.onclick=function(){if(!filled){fill();filled=true}',
+    'var willOpen=g.classList.contains("collapsed");',
     'if(openGrid&&openGrid!==g){openGrid.classList.add("collapsed")}',
     'if(willOpen){g.classList.remove("collapsed");openGrid=g}',
     'else{g.classList.add("collapsed");openGrid=null}};',
@@ -486,8 +668,8 @@ function configurationHtml(settings) {
     'if(dots[i].getAttribute("data-dot-key")===key){',
     'dots[i].style.background="#"+value}}}',
     // The bar list: one row per series, in display order.
-    'var COLOR_ROLES=[["bar","Bar"],["text","Text (on track)"],',
-    '["onBar","Text (on bar)"]];',
+    'var COLOR_ROLES=[["bar","Bar"],["track","Track"],',
+    '["text","Text (on track)"],["onBar","Text (on bar)"]];',
     'function items(){return Array.prototype.slice.call(',
     'document.querySelectorAll("#list .si"))}',
     'function shownCount(){var n=0;items().forEach(function(el){',
@@ -577,31 +759,49 @@ function configurationHtml(settings) {
     'function collect(){var out={},list=fields();for(var i=0;i<list.length;i++){',
     'var el=list[i],key=el.getAttribute("data-key");',
     'if(el.type==="checkbox"){out[key]=el.checked?1:0}',
+    'else if(el.type==="date"){out[key]=dayFromDate(el.value)}',
+    'else if(el.type==="number"){',
+    'out[key]=Math.round(Number(el.value||0)*scaleOf(el))}',
+    'else if(el.type==="text"){out[key]=el.value}',
     'else{out[key]=parseInt(el.value,10)}}',
     'for(var ck in colors){if(colors.hasOwnProperty(ck)){out[ck]=colors[ck]}}',
     'var order=[],visible=SERIES.map(function(){return 0});',
     'items().forEach(function(el){var id=Number(el.getAttribute("data-id"));',
-    'order.push(id);visible[id]=el.querySelector("input").checked?1:0});',
+    'order.push(id);visible[id]=el.querySelector(".si-head input").checked?1:0});',
     'out.SETTING_SERIES_ORDER=order;out.SETTING_SERIES_VISIBLE=visible;',
+    // Typed coordinates are a fix as good as the phone's, so the watch is told
+    // it has one.
+    'out.SETTING_LOCATION_VALID=',
+    '(out.SETTING_LATITUDE||out.SETTING_LONGITUDE||',
+    'Number(current.SETTING_LOCATION_VALID))?1:0;',
     'return out}',
+    'function buildTemplates(){var host=document.getElementById("tpl");',
+    'var input=document.querySelector("[data-key=SETTING_CUSTOM_LABEL]");',
+    '["{d}","{d}d","J-{d}","{p}%","{d}/{t}"].forEach(function(t){',
+    'var b=document.createElement("button");b.type="button";b.className="chip";',
+    'b.textContent=t;b.onclick=function(){input.value=t};',
+    'host.appendChild(b)})}',
     'function cfmShow(v){document.getElementById("cfm").classList[v?"add":"remove"]("open")}',
     'document.getElementById("reset").onclick=function(){cfmShow(true)};',
     'document.getElementById("cfmCancel").onclick=function(){cfmShow(false)};',
     'document.getElementById("cfmOk").onclick=function(){cfmShow(false);',
-    'apply(defaults);initColors(defaults);',
+    'apply(defaults);syncStyleOptions();initColors(defaults);',
     'renderList(defaults.SETTING_SERIES_ORDER,defaults.SETTING_SERIES_VISIBLE);',
     'renderColors()};',
     'document.getElementById("save").onclick=function(){',
     'location.href="pebblejs://close#"+encodeURIComponent(JSON.stringify(collect()))};',
-    'apply(current);initColors(current);',
+    'document.querySelector("[data-key=SETTING_STYLE]").onchange=syncStyleOptions;',
+    'apply(current);syncStyleOptions();initColors(current);',
     'renderList(current.SETTING_SERIES_ORDER,current.SETTING_SERIES_VISIBLE);',
-    'renderColors();',
+    'renderColors();buildTemplates();',
     '</script></body></html>'
   ].join('');
 }
 
 Pebble.addEventListener('ready', function () {
-  sendSettings(loadSettings());
+  var settings = loadSettings();
+  sendSettings(settings);
+  refreshLocation(settings);
 });
 
 Pebble.addEventListener('showConfiguration', function () {
@@ -630,4 +830,5 @@ Pebble.addEventListener('webviewclosed', function (event) {
   settings = mergedSettings(settings);
   saveSettings(settings);
   sendSettings(settings);
+  refreshLocation(settings);
 });
