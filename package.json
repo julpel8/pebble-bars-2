@@ -2,7 +2,7 @@
   "name": "pebble-bars-2",
   "author": "julien",
   "description": "A native Pebble Time 2 clean-room recreation of ELEQUENT's Bars watchface.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "license": "MIT",
   "private": true,
   "keywords": [
