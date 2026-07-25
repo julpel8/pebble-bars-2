@@ -1,5 +1,32 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- Polar layout, in clockwise and anticlockwise variants: the bars become
+  rectangular rings nested to the shape of the screen, the first bar in the
+  list being the outer ring. Each ring fills from twelve o'clock and carries
+  its label in its top band.
+- Reorderable bar list in the configuration page: drag a row to change the
+  display order, tick it to show or hide the bar, and tap it to open its three
+  colours.
+- Per-series visibility for all seven bars, replacing the fixed layout.
+
+### Changed
+
+- Labels now scale with the bar: with few bars on screen they use the 60-point
+  LECO face instead of stopping at 42, in both horizontal and vertical layouts.
+  Packed layouts (six or seven bars) are unchanged.
+- Bar order now comes from the saved list instead of the language's date order,
+  which only seeds the default. Existing installs keep their current order and
+  visibility on upgrade.
+
+### Removed
+
+- The separate "Show seconds" and "Show battery" toggles, now tick boxes in the
+  bar list.
+
 ## [0.2.0] - 2026-07-24
 
 ### Added

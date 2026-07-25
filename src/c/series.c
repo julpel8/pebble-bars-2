@@ -44,13 +44,62 @@ static void initialize_series(Series *series, const Settings *settings,
   snprintf(series->label, sizeof(series->label), "%s", label);
 }
 
+static void initialize_hour(Series *series, const Settings *settings,
+                            const struct tm *time_info) {
+  char label[MAX_LABEL_BYTES];
+  int display_hour = time_info->tm_hour;
+  if (!uses_24_hour_clock(settings)) {
+    display_hour %= 12;
+    if (display_hour == 0) {
+      display_hour = 12;
+    }
+  }
+  if (settings->leading_zero) {
+    snprintf(label, sizeof(label), "%02d", display_hour);
+  } else {
+    snprintf(label, sizeof(label), "%d", display_hour);
+  }
+
+  int value = settings->smooth_progress ? seconds_since_midnight(time_info)
+                                        : time_info->tm_hour;
+  int maximum = settings->smooth_progress ? SECONDS_PER_DAY : 24;
+  initialize_series(series, settings, SERIES_HOUR, value, maximum, label);
+}
+
+static void initialize_minute(Series *series, const Settings *settings,
+                              const struct tm *time_info) {
+  char label[MAX_LABEL_BYTES];
+  snprintf(label, sizeof(label), "%02d", time_info->tm_min);
+  int value = settings->smooth_progress
+                  ? time_info->tm_min * SECONDS_PER_MINUTE + time_info->tm_sec
+                  : time_info->tm_min;
+  int maximum = settings->smooth_progress ? SECONDS_PER_HOUR : 60;
+  initialize_series(series, settings, SERIES_MINUTE, value, maximum, label);
+}
+
+static void initialize_second(Series *series, const Settings *settings,
+                              const struct tm *time_info) {
+  char label[MAX_LABEL_BYTES];
+  snprintf(label, sizeof(label), "%02d", time_info->tm_sec);
+  initialize_series(series, settings, SERIES_SECOND, time_info->tm_sec, 60,
+                    label);
+}
+
+static void initialize_battery(Series *series, const Settings *settings) {
+  char label[MAX_LABEL_BYTES];
+  BatteryChargeState battery = battery_state_service_peek();
+  snprintf(label, sizeof(label), "%d%%", battery.charge_percent);
+  initialize_series(series, settings, SERIES_BATTERY, battery.charge_percent,
+                    100, label);
+}
+
 static void initialize_date_part(Series *series, const Settings *settings,
-                                 DatePart part, const struct tm *time_info,
+                                 SeriesId id, const struct tm *time_info,
                                  uint8_t language, bool use_full_names) {
   char label[MAX_LABEL_BYTES];
   int day_progress = seconds_since_midnight(time_info);
-  switch (part) {
-    case DATE_PART_WEEKDAY: {
+  switch (id) {
+    case SERIES_DAY: {
       int weekday = settings->week_starts_sunday
                         ? time_info->tm_wday + 1
                         : (time_info->tm_wday == 0 ? 7
@@ -65,7 +114,7 @@ static void initialize_date_part(Series *series, const Settings *settings,
                             : day_names[language][time_info->tm_wday]);
       break;
     }
-    case DATE_PART_DATE: {
+    case SERIES_DATE: {
       int month_days = days_in_month(time_info);
       int value = settings->smooth_progress
                       ? (time_info->tm_mday - 1) * SECONDS_PER_DAY +
@@ -77,7 +126,7 @@ static void initialize_date_part(Series *series, const Settings *settings,
       initialize_series(series, settings, SERIES_DATE, value, maximum, label);
       break;
     }
-    case DATE_PART_MONTH:
+    case SERIES_MONTH:
     default: {
       int value = time_info->tm_mon + 1;
       int maximum = 12;
@@ -103,7 +152,6 @@ static void initialize_date_part(Series *series, const Settings *settings,
 int series_build(Series output[MAX_SERIES], const Settings *settings) {
   time_t now = time(NULL);
   struct tm time_info = *localtime(&now);
-  char label[MAX_LABEL_BYTES];
   uint8_t language =
       settings->language < LANGUAGE_COUNT ? settings->language : LANGUAGE_EN;
   bool use_full_date_names =
@@ -111,53 +159,32 @@ int series_build(Series output[MAX_SERIES], const Settings *settings) {
       (settings->style == STYLE_HORIZONTAL ||
        settings->style == STYLE_HORIZONTAL_INVERTED);
 
-  int display_hour = time_info.tm_hour;
-  if (!uses_24_hour_clock(settings)) {
-    display_hour %= 12;
-    if (display_hour == 0) {
-      display_hour = 12;
+  int count = 0;
+  for (int slot = 0; slot < MAX_SERIES; ++slot) {
+    SeriesId id = (SeriesId)settings->series_order[slot];
+    if (id >= MAX_SERIES || !settings->series_visible[id]) {
+      continue;
     }
-  }
-  if (settings->leading_zero) {
-    snprintf(label, sizeof(label), "%02d", display_hour);
-  } else {
-    snprintf(label, sizeof(label), "%d", display_hour);
-  }
-  int hour_value = settings->smooth_progress
-                       ? seconds_since_midnight(&time_info)
-                       : time_info.tm_hour;
-  int hour_maximum = settings->smooth_progress ? SECONDS_PER_DAY : 24;
-  initialize_series(&output[0], settings, SERIES_HOUR, hour_value,
-                    hour_maximum, label);
 
-  snprintf(label, sizeof(label), "%02d", time_info.tm_min);
-  int minute_value =
-      settings->smooth_progress
-          ? time_info.tm_min * SECONDS_PER_MINUTE + time_info.tm_sec
-          : time_info.tm_min;
-  int minute_maximum = settings->smooth_progress ? SECONDS_PER_HOUR : 60;
-  initialize_series(&output[1], settings, SERIES_MINUTE, minute_value,
-                    minute_maximum, label);
-
-  int count = 2;
-  if (settings->show_seconds) {
-    snprintf(label, sizeof(label), "%02d", time_info.tm_sec);
-    initialize_series(&output[count++], settings, SERIES_SECOND,
-                      time_info.tm_sec, 60, label);
-  }
-
-  for (int index = 0; index < 3; ++index) {
-    initialize_date_part(
-        &output[count++], settings,
-        (DatePart)date_part_order[language][index], &time_info, language,
-        use_full_date_names);
-  }
-
-  if (settings->show_battery) {
-    BatteryChargeState battery = battery_state_service_peek();
-    snprintf(label, sizeof(label), "%d%%", battery.charge_percent);
-    initialize_series(&output[count++], settings, SERIES_BATTERY,
-                      battery.charge_percent, 100, label);
+    switch (id) {
+      case SERIES_HOUR:
+        initialize_hour(&output[count], settings, &time_info);
+        break;
+      case SERIES_MINUTE:
+        initialize_minute(&output[count], settings, &time_info);
+        break;
+      case SERIES_SECOND:
+        initialize_second(&output[count], settings, &time_info);
+        break;
+      case SERIES_BATTERY:
+        initialize_battery(&output[count], settings);
+        break;
+      default:
+        initialize_date_part(&output[count], settings, id, &time_info,
+                             language, use_full_date_names);
+        break;
+    }
+    ++count;
   }
   return count;
 }

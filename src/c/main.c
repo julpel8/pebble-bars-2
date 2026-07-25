@@ -76,7 +76,7 @@ static void update_tick_subscription(void) {
 }
 
 static void battery_handler(BatteryChargeState state) {
-  if (s_settings.show_battery) {
+  if (s_settings.series_visible[SERIES_BATTERY]) {
     mark_canvas_dirty();
   }
 }

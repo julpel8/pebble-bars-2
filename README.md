@@ -8,13 +8,16 @@ progress bars.
 
 - Native 200 × 228 layout for Pebble Time 2 (`emery`)
 - Horizontal, inverted horizontal, vertical, and inverted vertical layouts
+- Polar layout: the bars nest as rectangular rings sized to the screen, each
+  filling from twelve o'clock clockwise, or anticlockwise when inverted
 - Optional launch animation
-- Optional seconds and battery bars
+- Free bar order and per-bar visibility, set by dragging and ticking the bar
+  list in the settings
 - Configurable clock refresh every 1, 5, 10, 20, 30, or 60 seconds
 - Smooth continuous or exact whole-unit bar progress
 - System, 24-hour, and 12-hour clock formats
-- Localized weekday/month labels in the same 38 languages as Solar Earth,
-  including the natural date-bar order for each language
+- Localized weekday/month labels in the same 38 languages as Solar Earth, whose
+  natural date-bar order seeds the default bar list
 - Optional full weekday and month names in horizontal layouts
 - Configurable Monday- or Sunday-first weekday progress
 - Solar Earth-style LECO numbers and date labels in horizontal and vertical
@@ -29,10 +32,6 @@ progress bars.
   outline for legibility)
 - Self-contained configuration page: no external website is required
 - Individually configurable bar, text, background, and track colours
-
-## Roadmap
-
-- Polar layout
 
 ## Build
 

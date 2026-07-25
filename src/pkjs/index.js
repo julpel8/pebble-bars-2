@@ -1,5 +1,40 @@
 var STORAGE_KEY = 'bars2Settings';
 
+// Index = SeriesId in src/c/bars_types.h. SETTING_SERIES_ORDER lists these ids
+// in display order and SETTING_SERIES_VISIBLE is indexed by them, so the two
+// tables must stay in sync.
+var SERIES = [
+  {label: 'Hour', bar: 'SETTING_HOUR_BAR_COLOR',
+   text: 'SETTING_HOUR_TEXT_COLOR', onBar: 'SETTING_HOUR_TEXT_ON_BAR_COLOR'},
+  {label: 'Minute', bar: 'SETTING_MINUTE_BAR_COLOR',
+   text: 'SETTING_MINUTE_TEXT_COLOR', onBar: 'SETTING_MINUTE_TEXT_ON_BAR_COLOR'},
+  {label: 'Month', bar: 'SETTING_MONTH_BAR_COLOR',
+   text: 'SETTING_MONTH_TEXT_COLOR', onBar: 'SETTING_MONTH_TEXT_ON_BAR_COLOR'},
+  {label: 'Date', bar: 'SETTING_DATE_BAR_COLOR',
+   text: 'SETTING_DATE_TEXT_COLOR', onBar: 'SETTING_DATE_TEXT_ON_BAR_COLOR'},
+  {label: 'Weekday', bar: 'SETTING_DAY_BAR_COLOR',
+   text: 'SETTING_DAY_TEXT_COLOR', onBar: 'SETTING_DAY_TEXT_ON_BAR_COLOR'},
+  {label: 'Seconds', bar: 'SETTING_SECOND_BAR_COLOR',
+   text: 'SETTING_SECOND_TEXT_COLOR', onBar: 'SETTING_SECOND_TEXT_ON_BAR_COLOR'},
+  {label: 'Battery', bar: 'SETTING_BATTERY_BAR_COLOR',
+   text: 'SETTING_BATTERY_TEXT_COLOR',
+   onBar: 'SETTING_BATTERY_TEXT_ON_BAR_COLOR'}
+];
+
+// Ported from date_part_order in src/c/languages.c (W weekday, D date,
+// M month). Only used to rebuild the list for installs saved before the
+// series list existed; afterwards the saved order wins.
+var DATE_ORDER = 'WDM';
+var DATE_ORDER_BY_LANGUAGE = {
+  0: 'WMD',   // English (US)
+  6: 'DMW',   // Turkish
+  24: 'MDW',  // Hungarian
+  29: 'MDW',  // Chinese
+  34: 'MDW',  // Japanese
+  35: 'MDW'   // Korean
+};
+var DATE_PART_SERIES = {W: 4, D: 3, M: 2};
+
 var DEFAULTS = {
   SETTING_STYLE: 0,
   SETTING_TEXT_PLACEMENT: 2,
@@ -7,9 +42,11 @@ var DEFAULTS = {
   SETTING_LANGUAGE: 0,
   SETTING_CLOCK_REFRESH: 60,
   SETTING_LEADING_ZERO: 1,
-  SETTING_SHOW_SECONDS: 0,
-  SETTING_SHOW_BATTERY: 0,
   SETTING_SMOOTH_PROGRESS: 1,
+  // Display order (SeriesId values) and per-series visibility, the latter
+  // indexed by SeriesId rather than by position.
+  SETTING_SERIES_ORDER: [0, 1, 5, 4, 2, 3, 6],
+  SETTING_SERIES_VISIBLE: [1, 1, 1, 1, 1, 0, 0],
   SETTING_FULL_DATE_NAMES: 0,
   SETTING_WEEK_STARTS_SUNDAY: 0,
   SETTING_SEAMLESS_BARS: 1,
@@ -42,30 +79,6 @@ var DEFAULTS = {
   SETTING_BATTERY_TEXT_ON_BAR_COLOR: 'FFFFFF'
 };
 
-var COLOR_FIELDS = [
-  ['SETTING_HOUR_BAR_COLOR', 'Hour — bar'],
-  ['SETTING_HOUR_TEXT_COLOR', 'Hour — text (on track)'],
-  ['SETTING_HOUR_TEXT_ON_BAR_COLOR', 'Hour — text (on bar)'],
-  ['SETTING_MINUTE_BAR_COLOR', 'Minute — bar'],
-  ['SETTING_MINUTE_TEXT_COLOR', 'Minute — text (on track)'],
-  ['SETTING_MINUTE_TEXT_ON_BAR_COLOR', 'Minute — text (on bar)'],
-  ['SETTING_SECOND_BAR_COLOR', 'Seconds — bar'],
-  ['SETTING_SECOND_TEXT_COLOR', 'Seconds — text (on track)'],
-  ['SETTING_SECOND_TEXT_ON_BAR_COLOR', 'Seconds — text (on bar)'],
-  ['SETTING_MONTH_BAR_COLOR', 'Month — bar'],
-  ['SETTING_MONTH_TEXT_COLOR', 'Month — text (on track)'],
-  ['SETTING_MONTH_TEXT_ON_BAR_COLOR', 'Month — text (on bar)'],
-  ['SETTING_DATE_BAR_COLOR', 'Date — bar'],
-  ['SETTING_DATE_TEXT_COLOR', 'Date — text (on track)'],
-  ['SETTING_DATE_TEXT_ON_BAR_COLOR', 'Date — text (on bar)'],
-  ['SETTING_DAY_BAR_COLOR', 'Weekday — bar'],
-  ['SETTING_DAY_TEXT_COLOR', 'Weekday — text (on track)'],
-  ['SETTING_DAY_TEXT_ON_BAR_COLOR', 'Weekday — text (on bar)'],
-  ['SETTING_BATTERY_BAR_COLOR', 'Battery — bar'],
-  ['SETTING_BATTERY_TEXT_COLOR', 'Battery — text (on track)'],
-  ['SETTING_BATTERY_TEXT_ON_BAR_COLOR', 'Battery — text (on bar)']
-];
-
 // Keep this order in sync with src/c/languages.h and Solar Earth's language
 // setting so a saved language index has the same meaning in both watchfaces.
 var CONFIG_LANGUAGES = [
@@ -81,16 +94,88 @@ var CONFIG_LANGUAGES = [
 function copyObject(source) {
   var result = {};
   Object.keys(source || {}).forEach(function (key) {
-    result[key] = source[key];
+    var value = source[key];
+    result[key] = Array.isArray(value) ? value.slice() : value;
   });
   return result;
 }
 
+// Drops ids that are out of range or repeated and appends whatever is missing,
+// so a truncated or corrupt saved order still yields all seven series.
+function normalizedOrder(order) {
+  var source = Array.isArray(order) ? order : [];
+  var result = [];
+  var seen = {};
+  source.forEach(function (value) {
+    var id = Number(value);
+    if (id >= 0 && id < SERIES.length && !seen[id]) {
+      seen[id] = true;
+      result.push(id);
+    }
+  });
+  SERIES.forEach(function (series, id) {
+    if (!seen[id]) {
+      result.push(id);
+    }
+  });
+  return result;
+}
+
+// Hiding everything would leave a blank watchface, so an empty selection falls
+// back to the defaults.
+function normalizedVisible(visible) {
+  var source = Array.isArray(visible) ? visible : [];
+  var result = SERIES.map(function (series, id) {
+    return Number(source[id]) ? 1 : 0;
+  });
+  var shown = result.some(function (value) {
+    return value === 1;
+  });
+  return shown ? result : DEFAULTS.SETTING_SERIES_VISIBLE.slice();
+}
+
+// Before the series list, the layout came from the language's date order plus
+// the two show/hide toggles. Rebuild it once so an upgrade looks unchanged.
+function migrateSeriesLayout(result, saved) {
+  // Nothing saved at all is a fresh install, not an upgrade: leave the
+  // defaults alone rather than deriving them from absent legacy toggles.
+  if (saved.SETTING_SERIES_ORDER || Object.keys(saved).length === 0) {
+    return;
+  }
+
+  var language = Number(saved.SETTING_LANGUAGE) || 0;
+  var pattern = DATE_ORDER_BY_LANGUAGE[language] || DATE_ORDER;
+  var order = [0, 1, 5];
+  pattern.split('').forEach(function (part) {
+    order.push(DATE_PART_SERIES[part]);
+  });
+  order.push(6);
+
+  var visible = DEFAULTS.SETTING_SERIES_VISIBLE.slice();
+  visible[5] = Number(saved.SETTING_SHOW_SECONDS) ? 1 : 0;
+  visible[6] = Number(saved.SETTING_SHOW_BATTERY) ? 1 : 0;
+
+  result.SETTING_SERIES_ORDER = order;
+  result.SETTING_SERIES_VISIBLE = visible;
+}
+
 function mergedSettings(saved) {
   var result = copyObject(DEFAULTS);
-  Object.keys(saved || {}).forEach(function (key) {
-    result[key] = saved[key];
+  var source = saved || {};
+  // Only known keys are kept: retired ones left in storage would otherwise be
+  // sent to a watch whose manifest no longer declares them, failing the whole
+  // message.
+  Object.keys(source).forEach(function (key) {
+    if (DEFAULTS.hasOwnProperty(key)) {
+      result[key] = Array.isArray(source[key]) ? source[key].slice()
+                                               : source[key];
+    }
   });
+
+  migrateSeriesLayout(result, source);
+  result.SETTING_SERIES_ORDER = normalizedOrder(result.SETTING_SERIES_ORDER);
+  result.SETTING_SERIES_VISIBLE =
+      normalizedVisible(result.SETTING_SERIES_VISIBLE);
   return result;
 }
 
@@ -110,11 +195,37 @@ function saveSettings(settings) {
   }
 }
 
+// The order travels as one integer, series id 0 in the most significant
+// nibble, matching unpack_series_order() in src/c/settings.c.
+function packSeriesOrder(order) {
+  var packed = 0;
+  order.forEach(function (id) {
+    packed = packed * 16 + id;
+  });
+  return packed;
+}
+
+function seriesVisibleMask(visible) {
+  var mask = 0;
+  visible.forEach(function (shown, id) {
+    if (shown) {
+      mask |= 1 << id;
+    }
+  });
+  return mask;
+}
+
 function messagePayload(settings) {
   var payload = {};
-  Object.keys(settings).forEach(function (key) {
+  // Iterates the defaults, not the settings: anything the manifest does not
+  // declare must never reach sendAppMessage().
+  Object.keys(DEFAULTS).forEach(function (key) {
     var value = settings[key];
-    if (/_COLOR$/.test(key)) {
+    if (key === 'SETTING_SERIES_ORDER') {
+      payload[key] = packSeriesOrder(normalizedOrder(value));
+    } else if (key === 'SETTING_SERIES_VISIBLE') {
+      payload[key] = seriesVisibleMask(normalizedVisible(value));
+    } else if (/_COLOR$/.test(key)) {
       payload[key] = parseInt(String(value).replace('#', ''), 16);
     } else {
       payload[key] = parseInt(value, 10) || 0;
@@ -141,14 +252,6 @@ function colorFieldHtml(key, label) {
   // checkbox/select collect()/apply() loop.
   return '<div class="color-field" data-color-key="' + key +
          '" data-label="' + label + '"></div>';
-}
-
-function colorRowsHtml() {
-  var html = [];
-  COLOR_FIELDS.forEach(function (field) {
-    html.push(colorFieldHtml(field[0], field[1]));
-  });
-  return html.join('');
 }
 
 function safeJson(value) {
@@ -185,6 +288,29 @@ function configurationHtml(settings) {
     'input[type=checkbox]{width:24px;height:24px;accent-color:#55d57f}',
     '.color-field{padding:8px 15px;border-top:1px solid #2a2d32}',
     'h2+.color-field{border-top:0}',
+    '.si{border-top:1px solid #2a2d32;background:#1a1c20}',
+    '#list>.si:first-child{border-top:0}',
+    '.si-head{display:flex;align-items:center;gap:12px;padding:9px 14px;',
+    'min-height:52px}',
+    '.si-handle{flex:0 0 26px;align-self:stretch;display:flex;',
+    'align-items:center;justify-content:center;color:#8d929a;font-size:20px;',
+    'cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;',
+    '-webkit-touch-callout:none;margin:-9px 0 -9px -6px;padding:0 4px}',
+    '.si-dot{flex:0 0 20px;height:20px;border-radius:50%;',
+    'border:1px solid #444850}',
+    '.si-name{flex:1;line-height:1.2}',
+    '.si-chev{flex:0 0 14px;color:#8d929a;font-size:12px;text-align:center;',
+    'transition:transform .15s}',
+    '.si.open .si-chev{transform:rotate(90deg)}',
+    '.si-body{padding:0 11px 8px}.si-body.collapsed{display:none}',
+    '.si-body .color-field{padding:8px 4px}',
+    '.si-body>.color-field:first-child{border-top:0}',
+    '.si.off .si-name,.si.off .si-dot{opacity:.4}',
+    '.si.dragging{position:relative;z-index:5;background:#24272c;',
+    'border-radius:10px;box-shadow:0 8px 20px rgba(0,0,0,.55)}',
+    '.si.dragging .si-handle{cursor:grabbing}',
+    '.si.flash{animation:flash .5s ease-out}',
+    '@keyframes flash{0%,100%{background:#1a1c20}50%{background:#4a2f2f}}',
     '.cc-head{display:flex;align-items:center;justify-content:space-between;',
     'gap:12px;min-height:44px}.cc-head span{line-height:1.2}',
     '.swatch-btn{width:54px;height:34px;flex:0 0 54px;border-radius:7px;',
@@ -220,7 +346,13 @@ function configurationHtml(settings) {
     '<option value="1">Horizontal inverted</option>',
     '<option value="2">Vertical</option>',
     '<option value="3">Vertical inverted</option>',
+    '<option value="4">Polar</option>',
+    '<option value="5">Polar inverted</option>',
     '</select></label>',
+    '<p class="hint">Polar nests the bars as rectangular rings that fit the '
+      + 'screen: the first bar in the list below is the outer ring, and each '
+      + 'one fills from twelve o’clock — clockwise, or anticlockwise when '
+      + 'inverted. Labels sit in the top band of their ring.</p>',
     '<label class="row"><span>Text placement</span>',
     '<select data-key="SETTING_TEXT_PLACEMENT">',
     '<option value="1">Outside — start</option>',
@@ -279,10 +411,6 @@ function configurationHtml(settings) {
       + '60 minutes, 12 months, the actual days in the month, and 7 weekdays.</p>',
     '<label class="row"><span>Leading zero for hour</span>',
     '<input type="checkbox" data-key="SETTING_LEADING_ZERO"></label>',
-    '<label class="row"><span>Show seconds</span>',
-    '<input type="checkbox" data-key="SETTING_SHOW_SECONDS"></label>',
-    '<label class="row"><span>Show battery</span>',
-    '<input type="checkbox" data-key="SETTING_SHOW_BATTERY"></label>',
     '</section>',
     '<section><h2>Bluetooth</h2>',
     '<label class="row"><span>Vibrate on disconnect</span>',
@@ -295,8 +423,10 @@ function configurationHtml(settings) {
     colorFieldHtml('SETTING_TRACK_COLOR', 'Bar track'),
     '<p class="hint">A black track reproduces the clean look of the original face.</p>',
     '</section>',
-    '<section><h2>Series colours</h2>',
-    colorRowsHtml(),
+    '<section><h2>Bars</h2>',
+    '<div id="list"></div>',
+    '<p class="hint">Drag ≡ to reorder the bars, untick one to hide it, and '
+      + 'tap a row to open its three colours. At least one bar stays on.</p>',
     '</section>',
     '</main>',
     '<div class="actions"><button id="reset" type="button">Reset</button>',
@@ -308,6 +438,7 @@ function configurationHtml(settings) {
     '<script>',
     'var current=', safeJson(settings), ';',
     'var defaults=', safeJson(DEFAULTS), ';',
+    'var SERIES=', safeJson(SERIES), ';',
     'function fields(){return document.querySelectorAll("[data-key]")}',
     'function apply(values){var list=fields();for(var i=0;i<list.length;i++){',
     'var el=list[i],key=el.getAttribute("data-key"),value=values[key];',
@@ -334,7 +465,8 @@ function configurationHtml(settings) {
     'PEBBLE_COLORS.forEach(function(c){var sw=document.createElement("div");',
     'sw.className=(c===hex(colors[key]))?"swatch sel":"swatch";',
     'sw.style.background="#"+c;sw.title="#"+c;sw.onclick=function(){',
-    'colors[key]=c;btn.style.background="#"+c;var kids=g.children;',
+    'colors[key]=c;btn.style.background="#"+c;colorChanged(key,c);',
+    'var kids=g.children;',
     'for(var i=0;i<kids.length;i++){kids[i].className="swatch"}',
     'sw.className="swatch sel";g.className="swatches collapsed";openGrid=null};',
     'g.appendChild(sw)});',
@@ -347,20 +479,123 @@ function configurationHtml(settings) {
     'function renderColors(){openGrid=null;',
     'var m=document.querySelectorAll(".color-field");',
     'for(var i=0;i<m.length;i++){buildSwatch(m[i])}}',
+    // Keeps the collapsed row preview in step with the bar colour picker.
+    'function colorChanged(key,value){',
+    'var dots=document.querySelectorAll("[data-dot-key]");',
+    'for(var i=0;i<dots.length;i++){',
+    'if(dots[i].getAttribute("data-dot-key")===key){',
+    'dots[i].style.background="#"+value}}}',
+    // The bar list: one row per series, in display order.
+    'var COLOR_ROLES=[["bar","Bar"],["text","Text (on track)"],',
+    '["onBar","Text (on bar)"]];',
+    'function items(){return Array.prototype.slice.call(',
+    'document.querySelectorAll("#list .si"))}',
+    'function shownCount(){var n=0;items().forEach(function(el){',
+    'if(el.querySelector("input").checked){n++}});return n}',
+    'function collapseAll(){if(openGrid){openGrid.classList.add("collapsed");',
+    'openGrid=null}items().forEach(function(el){el.classList.remove("open");',
+    'var b=el.querySelector(".si-body");if(b){b.classList.add("collapsed")}})}',
+    'function flash(el){el.classList.remove("flash");',
+    'void el.offsetWidth;el.classList.add("flash")}',
+    'function seriesItem(id,shown){var spec=SERIES[id];',
+    'var item=document.createElement("div");',
+    'item.className=shown?"si":"si off";item.setAttribute("data-id",id);',
+    'var head=document.createElement("div");head.className="si-head";',
+    'var handle=document.createElement("div");handle.className="si-handle";',
+    'handle.innerHTML="&#8801;";',
+    'var box=document.createElement("input");box.type="checkbox";',
+    'box.checked=shown;',
+    'var dot=document.createElement("div");dot.className="si-dot";',
+    'dot.setAttribute("data-dot-key",spec.bar);',
+    'dot.style.background="#"+hex(colors[spec.bar]);',
+    'var name=document.createElement("div");name.className="si-name";',
+    'name.textContent=spec.label;',
+    'var chev=document.createElement("div");chev.className="si-chev";',
+    'chev.innerHTML="&#9654;";',
+    'var body=document.createElement("div");body.className="si-body collapsed";',
+    'COLOR_ROLES.forEach(function(role){var mount=document.createElement("div");',
+    'mount.className="color-field";',
+    'mount.setAttribute("data-color-key",spec[role[0]]);',
+    'mount.setAttribute("data-label",role[1]);body.appendChild(mount)});',
+    // Refuse to hide the last visible bar: an empty face is never wanted.
+    'box.onclick=function(e){e.stopPropagation();',
+    'if(!box.checked&&shownCount()===0){box.checked=true;flash(item);return}',
+    'if(box.checked){item.classList.remove("off")}',
+    'else{item.classList.add("off")}};',
+    'head.onclick=function(){var willOpen=body.classList.contains("collapsed");',
+    'if(willOpen){body.classList.remove("collapsed");item.classList.add("open")}',
+    'else{body.classList.add("collapsed");item.classList.remove("open")}};',
+    'handle.onclick=function(e){e.stopPropagation()};',
+    'bindDrag(handle,item);',
+    'head.appendChild(handle);head.appendChild(box);head.appendChild(dot);',
+    'head.appendChild(name);head.appendChild(chev);',
+    'item.appendChild(head);item.appendChild(body);return item}',
+    'function renderList(order,visible){',
+    'var list=document.getElementById("list");list.innerHTML="";',
+    'order.forEach(function(id){',
+    'list.appendChild(seriesItem(id,Number(visible[id])===1))})}',
+    // Drag to reorder. Rows are collapsed first so every row is the same
+    // height, which keeps the hit test to a midpoint comparison.
+    'var drag=null;',
+    'function startDrag(y,item){collapseAll();',
+    'drag={item:item,startY:y};item.classList.add("dragging")}',
+    'function moveDrag(y){if(!drag){return}',
+    'var item=drag.item,list=document.getElementById("list");',
+    'item.style.transform="translateY("+(y-drag.startY)+"px)";',
+    'var rect=item.getBoundingClientRect();',
+    'var centre=rect.top+rect.height/2;',
+    'var prev=item.previousElementSibling,next=item.nextElementSibling,',
+    'target=null,before=null;',
+    'if(prev){var pr=prev.getBoundingClientRect();',
+    'if(centre<pr.top+pr.height/2){target=prev;before=prev}}',
+    'if(!target&&next){var nr=next.getBoundingClientRect();',
+    'if(centre>nr.top+nr.height/2){target=next;before=next.nextElementSibling}}',
+    'if(!target){return}',
+    'var wasAt=rect.top;list.insertBefore(item,before);',
+    // Rebase on the layout shift so the row stays under the finger.
+    'drag.startY+=item.getBoundingClientRect().top-wasAt;',
+    'item.style.transform="translateY("+(y-drag.startY)+"px)"}',
+    'function endDrag(){if(!drag){return}',
+    'drag.item.style.transform="";drag.item.classList.remove("dragging");',
+    'drag=null}',
+    'function bindDrag(handle,item){',
+    'if(window.PointerEvent){',
+    'handle.addEventListener("pointerdown",function(e){',
+    'if(e.button&&e.button!==0){return}e.preventDefault();',
+    'if(handle.setPointerCapture){handle.setPointerCapture(e.pointerId)}',
+    'startDrag(e.clientY,item)});',
+    'handle.addEventListener("pointermove",function(e){',
+    'if(drag){e.preventDefault();moveDrag(e.clientY)}});',
+    'handle.addEventListener("pointerup",endDrag);',
+    'handle.addEventListener("pointercancel",endDrag)}',
+    'else{handle.addEventListener("touchstart",function(e){e.preventDefault();',
+    'startDrag(e.touches[0].clientY,item)});',
+    'handle.addEventListener("touchmove",function(e){e.preventDefault();',
+    'moveDrag(e.touches[0].clientY)});',
+    'handle.addEventListener("touchend",endDrag);',
+    'handle.addEventListener("touchcancel",endDrag)}}',
     'function collect(){var out={},list=fields();for(var i=0;i<list.length;i++){',
     'var el=list[i],key=el.getAttribute("data-key");',
     'if(el.type==="checkbox"){out[key]=el.checked?1:0}',
     'else{out[key]=parseInt(el.value,10)}}',
     'for(var ck in colors){if(colors.hasOwnProperty(ck)){out[ck]=colors[ck]}}',
+    'var order=[],visible=SERIES.map(function(){return 0});',
+    'items().forEach(function(el){var id=Number(el.getAttribute("data-id"));',
+    'order.push(id);visible[id]=el.querySelector("input").checked?1:0});',
+    'out.SETTING_SERIES_ORDER=order;out.SETTING_SERIES_VISIBLE=visible;',
     'return out}',
     'function cfmShow(v){document.getElementById("cfm").classList[v?"add":"remove"]("open")}',
     'document.getElementById("reset").onclick=function(){cfmShow(true)};',
     'document.getElementById("cfmCancel").onclick=function(){cfmShow(false)};',
     'document.getElementById("cfmOk").onclick=function(){cfmShow(false);',
-    'apply(defaults);initColors(defaults);renderColors()};',
+    'apply(defaults);initColors(defaults);',
+    'renderList(defaults.SETTING_SERIES_ORDER,defaults.SETTING_SERIES_VISIBLE);',
+    'renderColors()};',
     'document.getElementById("save").onclick=function(){',
     'location.href="pebblejs://close#"+encodeURIComponent(JSON.stringify(collect()))};',
-    'apply(current);initColors(current);renderColors();',
+    'apply(current);initColors(current);',
+    'renderList(current.SETTING_SERIES_ORDER,current.SETTING_SERIES_VISIBLE);',
+    'renderColors();',
     '</script></body></html>'
   ].join('');
 }

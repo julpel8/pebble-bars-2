@@ -1,13 +1,17 @@
 #include "settings.h"
 
+#include <string.h>
+
 #include "languages.h"
 
 enum {
   PERSIST_STYLE = 100,
   PERSIST_CLOCK_FORMAT,
   PERSIST_LEADING_ZERO,
-  PERSIST_SHOW_SECONDS,
-  PERSIST_SHOW_BATTERY,
+  // Retired toggles, replaced by the per-series visibility mask. They are only
+  // read now, to migrate installs saved before the series list existed.
+  PERSIST_LEGACY_SHOW_SECONDS,
+  PERSIST_LEGACY_SHOW_BATTERY,
   // Key 105 belonged to a retired setting. Keep later IDs stable for upgrades.
   PERSIST_ANIMATE = 106,
   PERSIST_VIBE_DISCONNECT,
@@ -42,7 +46,9 @@ enum {
   PERSIST_CLOCK_REFRESH,
   PERSIST_SMOOTH_PROGRESS,
   PERSIST_FULL_DATE_NAMES,
-  PERSIST_WEEK_STARTS_SUNDAY
+  PERSIST_WEEK_STARTS_SUNDAY,
+  PERSIST_SERIES_ORDER,
+  PERSIST_SERIES_VISIBLE
 };
 
 static const int s_bar_persist_keys[MAX_SERIES] = {
@@ -85,6 +91,74 @@ static uint8_t valid_clock_refresh(int value) {
     default:
       return 60;
   }
+}
+
+// The display order travels as one integer: series id 0 in the most
+// significant nibble, so MAX_SERIES ids fit in 28 bits.
+static uint32_t pack_series_order(const uint8_t order[MAX_SERIES]) {
+  uint32_t packed = 0;
+  for (int index = 0; index < MAX_SERIES; ++index) {
+    packed = (packed << 4) | (order[index] & 0x0F);
+  }
+  return packed;
+}
+
+// Only writes to `order` when `packed` is a complete permutation, so a corrupt
+// value leaves the current order alone.
+static bool unpack_series_order(uint32_t packed, uint8_t order[MAX_SERIES]) {
+  uint8_t candidate[MAX_SERIES];
+  uint8_t seen = 0;
+  for (int index = 0; index < MAX_SERIES; ++index) {
+    uint8_t id = (packed >> (4 * (MAX_SERIES - 1 - index))) & 0x0F;
+    if (id >= MAX_SERIES || (seen & (1 << id))) {
+      return false;
+    }
+    seen |= 1 << id;
+    candidate[index] = id;
+  }
+  memcpy(order, candidate, sizeof(candidate));
+  return true;
+}
+
+// An empty mask would leave a blank watchface, so it is rejected outright.
+static bool apply_visible_mask(uint32_t mask, bool visible[MAX_SERIES]) {
+  if ((mask & ((1 << MAX_SERIES) - 1)) == 0) {
+    return false;
+  }
+  for (int index = 0; index < MAX_SERIES; ++index) {
+    visible[index] = (mask & (1 << index)) != 0;
+  }
+  return true;
+}
+
+static uint32_t series_visible_mask(const bool visible[MAX_SERIES]) {
+  uint32_t mask = 0;
+  for (int index = 0; index < MAX_SERIES; ++index) {
+    if (visible[index]) {
+      mask |= 1 << index;
+    }
+  }
+  return mask;
+}
+
+// Layout used before the series list existed: hour, minute, seconds, the three
+// date parts in the language's natural order, then battery. Used as the
+// starting point for installs upgrading from that build.
+static void series_order_from_language(uint8_t language,
+                                       uint8_t order[MAX_SERIES]) {
+  static const uint8_t date_part_series[] = {
+      [DATE_PART_WEEKDAY] = SERIES_DAY,
+      [DATE_PART_DATE] = SERIES_DATE,
+      [DATE_PART_MONTH] = SERIES_MONTH};
+
+  int index = 0;
+  order[index++] = SERIES_HOUR;
+  order[index++] = SERIES_MINUTE;
+  order[index++] = SERIES_SECOND;
+  for (int part = 0; part < 3; ++part) {
+    order[index++] = date_part_series[date_part_order[language][part]];
+  }
+  order[index] = SERIES_BATTERY;
 }
 
 static GColor color_from_persist(int key, GColor fallback) {
@@ -159,8 +233,6 @@ static void settings_set_defaults(Settings *settings) {
       .language = LANGUAGE_EN,
       .clock_refresh_seconds = 60,
       .leading_zero = true,
-      .show_seconds = false,
-      .show_battery = false,
       .smooth_progress = true,
       .full_date_names = false,
       .week_starts_sunday = false,
@@ -169,6 +241,19 @@ static void settings_set_defaults(Settings *settings) {
       .animate = true,
       .vibe_disconnect = true,
       .vibe_reconnect = false,
+      .series_order =
+          {
+              SERIES_HOUR, SERIES_MINUTE, SERIES_SECOND, SERIES_DAY,
+              SERIES_MONTH, SERIES_DATE, SERIES_BATTERY,
+          },
+      // Indexed by SeriesId: everything but seconds and battery.
+      .series_visible =
+          {
+              [SERIES_HOUR] = true,   [SERIES_MINUTE] = true,
+              [SERIES_MONTH] = true,  [SERIES_DATE] = true,
+              [SERIES_DAY] = true,    [SERIES_SECOND] = false,
+              [SERIES_BATTERY] = false,
+          },
       .background_color = GColorBlack,
       .track_color = GColorBlack,
       .bar_colors =
@@ -232,12 +317,6 @@ void settings_load(Settings *settings) {
   if (persist_exists(PERSIST_LEADING_ZERO)) {
     settings->leading_zero = persist_read_bool(PERSIST_LEADING_ZERO);
   }
-  if (persist_exists(PERSIST_SHOW_SECONDS)) {
-    settings->show_seconds = persist_read_bool(PERSIST_SHOW_SECONDS);
-  }
-  if (persist_exists(PERSIST_SHOW_BATTERY)) {
-    settings->show_battery = persist_read_bool(PERSIST_SHOW_BATTERY);
-  }
   if (persist_exists(PERSIST_SMOOTH_PROGRESS)) {
     settings->smooth_progress = persist_read_bool(PERSIST_SMOOTH_PROGRESS);
   }
@@ -262,6 +341,26 @@ void settings_load(Settings *settings) {
   }
   if (persist_exists(PERSIST_VIBE_RECONNECT)) {
     settings->vibe_reconnect = persist_read_bool(PERSIST_VIBE_RECONNECT);
+  }
+
+  if (persist_exists(PERSIST_SERIES_ORDER)) {
+    unpack_series_order((uint32_t)persist_read_int(PERSIST_SERIES_ORDER),
+                        settings->series_order);
+  } else {
+    series_order_from_language(settings->language, settings->series_order);
+  }
+  if (persist_exists(PERSIST_SERIES_VISIBLE)) {
+    apply_visible_mask((uint32_t)persist_read_int(PERSIST_SERIES_VISIBLE),
+                       settings->series_visible);
+  } else {
+    if (persist_exists(PERSIST_LEGACY_SHOW_SECONDS)) {
+      settings->series_visible[SERIES_SECOND] =
+          persist_read_bool(PERSIST_LEGACY_SHOW_SECONDS);
+    }
+    if (persist_exists(PERSIST_LEGACY_SHOW_BATTERY)) {
+      settings->series_visible[SERIES_BATTERY] =
+          persist_read_bool(PERSIST_LEGACY_SHOW_BATTERY);
+    }
   }
 
   settings->background_color =
@@ -289,8 +388,6 @@ void settings_save(const Settings *settings) {
   persist_write_int(PERSIST_LANGUAGE, settings->language);
   persist_write_int(PERSIST_CLOCK_REFRESH, settings->clock_refresh_seconds);
   persist_write_bool(PERSIST_LEADING_ZERO, settings->leading_zero);
-  persist_write_bool(PERSIST_SHOW_SECONDS, settings->show_seconds);
-  persist_write_bool(PERSIST_SHOW_BATTERY, settings->show_battery);
   persist_write_bool(PERSIST_SMOOTH_PROGRESS, settings->smooth_progress);
   persist_write_bool(PERSIST_FULL_DATE_NAMES, settings->full_date_names);
   persist_write_bool(PERSIST_WEEK_STARTS_SUNDAY,
@@ -300,6 +397,10 @@ void settings_save(const Settings *settings) {
   persist_write_bool(PERSIST_ANIMATE, settings->animate);
   persist_write_bool(PERSIST_VIBE_DISCONNECT, settings->vibe_disconnect);
   persist_write_bool(PERSIST_VIBE_RECONNECT, settings->vibe_reconnect);
+  persist_write_int(PERSIST_SERIES_ORDER,
+                    (int)pack_series_order(settings->series_order));
+  persist_write_int(PERSIST_SERIES_VISIBLE,
+                    (int)series_visible_mask(settings->series_visible));
   persist_write_int(PERSIST_BACKGROUND_COLOR, settings->background_color.argb);
   persist_write_int(PERSIST_TRACK_COLOR, settings->track_color.argb);
 
@@ -361,12 +462,18 @@ void settings_apply_message(Settings *settings, DictionaryIterator *iterator) {
         valid_clock_refresh(tuple->value->int32);
   }
 
+  tuple = dict_find(iterator, MESSAGE_KEY_SETTING_SERIES_ORDER);
+  if (tuple) {
+    unpack_series_order(tuple->value->uint32, settings->series_order);
+  }
+
+  tuple = dict_find(iterator, MESSAGE_KEY_SETTING_SERIES_VISIBLE);
+  if (tuple) {
+    apply_visible_mask(tuple->value->uint32, settings->series_visible);
+  }
+
   apply_bool_tuple(iterator, MESSAGE_KEY_SETTING_LEADING_ZERO,
                    &settings->leading_zero);
-  apply_bool_tuple(iterator, MESSAGE_KEY_SETTING_SHOW_SECONDS,
-                   &settings->show_seconds);
-  apply_bool_tuple(iterator, MESSAGE_KEY_SETTING_SHOW_BATTERY,
-                   &settings->show_battery);
   apply_bool_tuple(iterator, MESSAGE_KEY_SETTING_SMOOTH_PROGRESS,
                    &settings->smooth_progress);
   apply_bool_tuple(iterator, MESSAGE_KEY_SETTING_FULL_DATE_NAMES,
