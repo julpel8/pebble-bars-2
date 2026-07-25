@@ -46,13 +46,6 @@ static int integer_sqrt(int value) {
   return (int)result;
 }
 
-static bool rects_intersect(GRect first, GRect second) {
-  return first.origin.x < second.origin.x + second.size.w &&
-         first.origin.x + first.size.w > second.origin.x &&
-         first.origin.y < second.origin.y + second.size.h &&
-         first.origin.y + first.size.h > second.origin.y;
-}
-
 static int animated_ratio(const Series *series, int animation_progress) {
   if (series->maximum <= 0) {
     return 0;
@@ -222,22 +215,9 @@ static void draw_smooth_text_outline(GContext *ctx, const char *text,
   }
 }
 
-static bool rect_intersects_any(GRect rect, const GRect *others, int count) {
-  for (int index = 0; index < count; ++index) {
-    if (rects_intersect(rect, others[index])) {
-      return true;
-    }
-  }
-  return false;
-}
-
-// Takes a list of filled areas rather than one: a polar label straddles the
-// ring's seam, so the fill can reach it as two separate runs.
 static void draw_smooth_text_letterwise(
-    GContext *ctx, const char *text, GFont font, GRect frame, int visible_y,
-    int visible_height, GColor track_color, GColor bar_color,
-    const GRect *bar_clips, int clip_count, bool outlined,
-    int letter_spacing) {
+    GContext *ctx, const char *text, GFont font, GRect frame, GColor color,
+    bool outlined, int letter_spacing) {
   // The outline runs as its own pass over the whole label: drawn per glyph, a
   // neighbour's outline would land on top of an already filled glyph.
   for (int pass = outlined ? 0 : 1; pass < 2; ++pass) {
@@ -255,11 +235,6 @@ static void draw_smooth_text_letterwise(
         draw_smooth_text_outline(ctx, glyph, font, glyph_frame,
                                  GTextAlignmentLeft);
       } else {
-        GRect glyph_visible =
-            GRect(glyph_x, visible_y, glyph_width, visible_height);
-        GColor color = rect_intersects_any(glyph_visible, bar_clips, clip_count)
-                           ? bar_color
-                           : track_color;
         draw_smooth_text(ctx, glyph, font, glyph_frame, color,
                          GTextAlignmentLeft);
       }
@@ -357,7 +332,6 @@ static void draw_horizontal(GContext *ctx, GRect bounds, const Series *series,
     graphics_context_set_fill_color(ctx, item->bar_color);
     graphics_fill_rect(ctx, GRect(fill_x, row_y, fill_width, bar_height), 0,
                        GCornerNone);
-    GRect bar_clip = GRect(fill_x, row_y, fill_width, bar_height);
     SmoothFontSpec font_spec =
         smooth_font_for_series(item, bounds.size.w - 4, bar_height + 1);
     int text_width = smooth_letterwise_width(
@@ -371,16 +345,14 @@ static void draw_horizontal(GContext *ctx, GRect bounds, const Series *series,
         GRect(text_x, visible_y - font_spec.top_offset, text_width + 3,
               font_spec.line_height + 2);
     draw_smooth_text_letterwise(
-        ctx, item->label, font_spec.font, frame, visible_y, text_height,
-        item->text_color, item->text_on_bar_color, &bar_clip, 1,
+        ctx, item->label, font_spec.font, frame, item->text_color,
         settings->text_outline, 0);
   }
 }
 
 static void draw_vertical_battery_label(
     GContext *ctx, const Series *item, SmoothFontSpec font_spec, int column_x,
-    int column_width, int visible_y, int text_height, GRect bar_clip,
-    bool outlined) {
+    int column_width, int visible_y, int text_height, bool outlined) {
   const char *percent = strchr(item->label, '%');
   if (!percent) {
     return;
@@ -406,18 +378,12 @@ static void draw_vertical_battery_label(
       GRect(text_x, visible_y - font_spec.top_offset, digit_width + 3,
             font_spec.line_height + 2);
   draw_smooth_text_letterwise(
-      ctx, digits, font_spec.font, frame, visible_y, text_height,
-      item->text_color, item->text_on_bar_color, &bar_clip, 1, outlined,
+      ctx, digits, font_spec.font, frame, item->text_color, outlined,
       letter_spacing);
 
   int percent_x = text_x + digit_width + gap;
   int percent_y = visible_y + (text_height - percent_height) / 2;
-  GRect percent_rect =
-      GRect(percent_x, percent_y, percent_width, percent_height);
-  GColor percent_color = rects_intersect(percent_rect, bar_clip)
-                             ? item->text_on_bar_color
-                             : item->text_color;
-  draw_small_percent(ctx, percent_x, percent_y, percent_color, outlined);
+  draw_small_percent(ctx, percent_x, percent_y, item->text_color, outlined);
 }
 
 static void draw_vertical(GContext *ctx, GRect bounds, const Series *series,
@@ -448,7 +414,6 @@ static void draw_vertical(GContext *ctx, GRect bounds, const Series *series,
     graphics_fill_rect(ctx,
                        GRect(column_x, fill_y, bar_width, fill_height), 0,
                        GCornerNone);
-    GRect bar_clip = GRect(column_x, fill_y, bar_width, fill_height);
     int max_text_width = BARS_MAX(1, column_width - 2);
     Series display_item = *item;
     // Columns run the full height, so the bar's width is what limits the font.
@@ -476,7 +441,7 @@ static void draw_vertical(GContext *ctx, GRect bounds, const Series *series,
     if (item->id == SERIES_BATTERY) {
       draw_vertical_battery_label(
           ctx, item, font_spec, column_x, column_width, visible_y, text_height,
-          bar_clip, settings->text_outline);
+          settings->text_outline);
       continue;
     }
     int letter_spacing = condensed_letter_spacing(
@@ -490,8 +455,7 @@ static void draw_vertical(GContext *ctx, GRect bounds, const Series *series,
               visible_y - font_spec.top_offset, text_width + 3,
               font_spec.line_height + 2);
     draw_smooth_text_letterwise(
-        ctx, display_label, font_spec.font, frame, visible_y, text_height,
-        item->text_color, item->text_on_bar_color, &bar_clip, 1,
+        ctx, display_label, font_spec.font, frame, item->text_color,
         settings->text_outline, letter_spacing);
   }
 }
@@ -509,7 +473,6 @@ typedef struct {
   GRect rect;
   bool horizontal;  // The fill runs along x rather than y.
   bool forward;     // It grows from the low edge towards the high one.
-  bool labelled;    // Part of the top band, where the label sits.
   // Pixels at the start already covered by the preceding segment's corner.
   int overlap;
 } PolarSegment;
@@ -575,27 +538,25 @@ static int polar_segments(GRect outer, GRect inner, bool inverted,
 
   int index = 0;
   if (inverted) {
+    segments[index++] = (PolarSegment){top_left, true, false, 0};
     segments[index++] =
-        (PolarSegment){top_left, true, false, true, 0};
+        (PolarSegment){left_band, false, true, top_height};
     segments[index++] =
-        (PolarSegment){left_band, false, true, true, top_height};
+        (PolarSegment){bottom_band, true, true, left_width};
     segments[index++] =
-        (PolarSegment){bottom_band, true, true, false, left_width};
+        (PolarSegment){right_band, false, false, bottom_height};
     segments[index++] =
-        (PolarSegment){right_band, false, false, true, bottom_height};
-    segments[index++] =
-        (PolarSegment){top_right, true, false, true, right_width};
+        (PolarSegment){top_right, true, false, right_width};
   } else {
+    segments[index++] = (PolarSegment){top_right, true, true, 0};
     segments[index++] =
-        (PolarSegment){top_right, true, true, true, 0};
+        (PolarSegment){right_band, false, true, top_height};
     segments[index++] =
-        (PolarSegment){right_band, false, true, true, top_height};
+        (PolarSegment){bottom_band, true, false, right_width};
     segments[index++] =
-        (PolarSegment){bottom_band, true, false, false, right_width};
+        (PolarSegment){left_band, false, false, bottom_height};
     segments[index++] =
-        (PolarSegment){left_band, false, false, true, bottom_height};
-    segments[index++] =
-        (PolarSegment){top_left, true, true, true, left_width};
+        (PolarSegment){top_left, true, true, left_width};
   }
   return index;
 }
@@ -657,10 +618,6 @@ static void draw_polar_rectangular(GContext *ctx, GRect bounds,
         (perimeter * animated_ratio(item, animation_progress) + 500) / 1000;
     int remaining = filled_length;
 
-    // The label straddles the seam and the side runs overlap its corner pixels,
-    // so up to four filled rectangles can cross the label's row.
-    GRect label_clips[4];
-    int clip_count = 0;
     graphics_context_set_fill_color(ctx, item->bar_color);
     for (int segment = 0; segment < segment_count && remaining > 0; ++segment) {
       int filled = BARS_MIN(remaining, segment_length(&segments[segment]));
@@ -669,9 +626,6 @@ static void draw_polar_rectangular(GContext *ctx, GRect bounds,
       }
       GRect fill = segment_fill(&segments[segment], filled);
       graphics_fill_rect(ctx, fill, 0, GCornerNone);
-      if (segments[segment].labelled) {
-        label_clips[clip_count++] = fill;
-      }
       remaining -= filled;
     }
     int max_text_width = BARS_MAX(1, right - left - 2);
@@ -687,28 +641,9 @@ static void draw_polar_rectangular(GContext *ctx, GRect bounds,
                         visible_y - font_spec.top_offset, text_width + 3,
                         font_spec.line_height + 2);
     draw_smooth_text_letterwise(ctx, item->label, font_spec.font, frame,
-                                visible_y, text_height, item->text_color,
-                                item->text_on_bar_color, label_clips,
-                                clip_count, settings->text_outline,
+                                item->text_color, settings->text_outline,
                                 letter_spacing);
   }
-}
-
-// How far from twelve o'clock the fill boundary crosses a row `height` above
-// the centre. The boundary is a ray, so it only meets that row while it is
-// still climbing; once it is not, or once it would land outside the ring, the
-// row is untouched on that side and `limit` is returned to say so.
-static int seam_reach(int height, int32_t angle, int limit) {
-  int32_t cosine = cos_lookup(angle);
-  if (cosine <= 0) {
-    return limit;
-  }
-  int32_t sine = sin_lookup(angle);
-  if (sine < 0) {
-    sine = -sine;
-  }
-  int64_t reach = (int64_t)height * sine / cosine;
-  return reach >= limit ? limit : (int)reach;
 }
 
 // Progress angles are always measured from twelve o'clock in the direction of
@@ -836,49 +771,11 @@ static void draw_polar_round(GContext *ctx, GRect bounds, const Series *series,
     int text_height = font_spec.visible_height;
     int visible_y = band_top + (thickness - text_height) / 2;
 
-    // The label straddles twelve o'clock, so the fill reaches it as two runs:
-    // one leaving the seam clockwise, the other arriving from anticlockwise to
-    // close the lap. Both are worked out along the label's own row.
-    GRect label_clips[2];
-    int clip_count = 0;
-    int label_height = centre_y - (visible_y + text_height / 2);
-    int label_half_chord = integer_sqrt(
-        BARS_MAX(0, outer * outer - label_height * label_height));
-    if (sweep > 0) {
-      int reach = sweep >= TRIG_MAX_ANGLE / 4
-                      ? label_half_chord
-                      : seam_reach(label_height, sweep, label_half_chord);
-      if (reach > 0) {
-        label_clips[clip_count++] =
-            GRect(centre_x, visible_y, BARS_MIN(reach, label_half_chord),
-                  text_height);
-      }
-    }
-    // The seam's other side fills last of all, so this run grows inwards from
-    // the ring's left edge rather than outwards from twelve o'clock.
-    if (sweep > 3 * (TRIG_MAX_ANGLE / 4)) {
-      int trail = seam_reach(label_height, TRIG_MAX_ANGLE - sweep,
-                            label_half_chord);
-      if (trail < label_half_chord) {
-        label_clips[clip_count++] =
-            GRect(centre_x - label_half_chord, visible_y,
-                  label_half_chord - trail, text_height);
-      }
-    }
-    if (inverted) {
-      for (int clip = 0; clip < clip_count; ++clip) {
-        int right = label_clips[clip].origin.x + label_clips[clip].size.w;
-        label_clips[clip].origin.x = 2 * centre_x - right;
-      }
-    }
-
     GRect frame = GRect(centre_x - text_width / 2,
                         visible_y - font_spec.top_offset, text_width + 3,
                         font_spec.line_height + 2);
     draw_smooth_text_letterwise(ctx, item->label, font_spec.font, frame,
-                                visible_y, text_height, item->text_color,
-                                item->text_on_bar_color, label_clips,
-                                clip_count, settings->text_outline,
+                                item->text_color, settings->text_outline,
                                 letter_spacing);
   }
 }

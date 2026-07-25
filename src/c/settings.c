@@ -20,27 +20,27 @@ enum {
   // read, but the ID stays reserved so an upgrade cannot mistake it.
   PERSIST_LEGACY_TRACK_COLOR,
   PERSIST_HOUR_BAR_COLOR,
-  PERSIST_HOUR_TEXT_COLOR,
+  PERSIST_RETIRED_HOUR_TEXT_COLOR,
   PERSIST_MINUTE_BAR_COLOR,
-  PERSIST_MINUTE_TEXT_COLOR,
+  PERSIST_RETIRED_MINUTE_TEXT_COLOR,
   PERSIST_MONTH_BAR_COLOR,
-  PERSIST_MONTH_TEXT_COLOR,
+  PERSIST_RETIRED_MONTH_TEXT_COLOR,
   PERSIST_DATE_BAR_COLOR,
-  PERSIST_DATE_TEXT_COLOR,
+  PERSIST_RETIRED_DATE_TEXT_COLOR,
   PERSIST_DAY_BAR_COLOR,
-  PERSIST_DAY_TEXT_COLOR,
+  PERSIST_RETIRED_DAY_TEXT_COLOR,
   PERSIST_SECOND_BAR_COLOR,
-  PERSIST_SECOND_TEXT_COLOR,
+  PERSIST_RETIRED_SECOND_TEXT_COLOR,
   PERSIST_BATTERY_BAR_COLOR,
-  PERSIST_BATTERY_TEXT_COLOR,
+  PERSIST_RETIRED_BATTERY_TEXT_COLOR,
   PERSIST_TEXT_PLACEMENT,
-  PERSIST_HOUR_TEXT_ON_BAR_COLOR,
-  PERSIST_MINUTE_TEXT_ON_BAR_COLOR,
-  PERSIST_MONTH_TEXT_ON_BAR_COLOR,
-  PERSIST_DATE_TEXT_ON_BAR_COLOR,
-  PERSIST_DAY_TEXT_ON_BAR_COLOR,
-  PERSIST_SECOND_TEXT_ON_BAR_COLOR,
-  PERSIST_BATTERY_TEXT_ON_BAR_COLOR,
+  PERSIST_HOUR_TEXT_COLOR,
+  PERSIST_MINUTE_TEXT_COLOR,
+  PERSIST_MONTH_TEXT_COLOR,
+  PERSIST_DATE_TEXT_COLOR,
+  PERSIST_DAY_TEXT_COLOR,
+  PERSIST_SECOND_TEXT_COLOR,
+  PERSIST_BATTERY_TEXT_COLOR,
   PERSIST_SEAMLESS,
   PERSIST_TEXT_OUTLINE,
   PERSIST_LANGUAGE,
@@ -63,17 +63,17 @@ enum {
   PERSIST_LONGITUDE,
   PERSIST_LOCATION_VALID,
   PERSIST_DAYLIGHT_BAR_COLOR,
+  PERSIST_RETIRED_DAYLIGHT_TEXT_COLOR,
   PERSIST_DAYLIGHT_TEXT_COLOR,
-  PERSIST_DAYLIGHT_TEXT_ON_BAR_COLOR,
   PERSIST_MOON_BAR_COLOR,
+  PERSIST_RETIRED_MOON_TEXT_COLOR,
   PERSIST_MOON_TEXT_COLOR,
-  PERSIST_MOON_TEXT_ON_BAR_COLOR,
   PERSIST_STEPS_BAR_COLOR,
+  PERSIST_RETIRED_STEPS_TEXT_COLOR,
   PERSIST_STEPS_TEXT_COLOR,
-  PERSIST_STEPS_TEXT_ON_BAR_COLOR,
   PERSIST_CUSTOM_BAR_COLOR,
+  PERSIST_RETIRED_CUSTOM_TEXT_COLOR,
   PERSIST_CUSTOM_TEXT_COLOR,
-  PERSIST_CUSTOM_TEXT_ON_BAR_COLOR,
   PERSIST_HOUR_TRACK_COLOR,
   PERSIST_MINUTE_TRACK_COLOR,
   PERSIST_MONTH_TRACK_COLOR,
@@ -88,7 +88,7 @@ enum {
   PERSIST_ROUND_POLAR_FILL
 };
 
-// All four tables are indexed by SeriesId.
+// All three tables are indexed by SeriesId.
 static const int s_bar_persist_keys[MAX_SERIES] = {
     PERSIST_HOUR_BAR_COLOR,     PERSIST_MINUTE_BAR_COLOR,
     PERSIST_MONTH_BAR_COLOR,    PERSIST_DATE_BAR_COLOR,
@@ -112,14 +112,6 @@ static const int s_text_persist_keys[MAX_SERIES] = {
     PERSIST_BATTERY_TEXT_COLOR,  PERSIST_DAYLIGHT_TEXT_COLOR,
     PERSIST_MOON_TEXT_COLOR,     PERSIST_STEPS_TEXT_COLOR,
     PERSIST_CUSTOM_TEXT_COLOR};
-
-static const int s_text_on_bar_persist_keys[MAX_SERIES] = {
-    PERSIST_HOUR_TEXT_ON_BAR_COLOR,     PERSIST_MINUTE_TEXT_ON_BAR_COLOR,
-    PERSIST_MONTH_TEXT_ON_BAR_COLOR,    PERSIST_DATE_TEXT_ON_BAR_COLOR,
-    PERSIST_DAY_TEXT_ON_BAR_COLOR,      PERSIST_SECOND_TEXT_ON_BAR_COLOR,
-    PERSIST_BATTERY_TEXT_ON_BAR_COLOR,  PERSIST_DAYLIGHT_TEXT_ON_BAR_COLOR,
-    PERSIST_MOON_TEXT_ON_BAR_COLOR,     PERSIST_STEPS_TEXT_ON_BAR_COLOR,
-    PERSIST_CUSTOM_TEXT_ON_BAR_COLOR};
 
 static int clamp_int(int value, int minimum, int maximum) {
   if (value < minimum) {
@@ -313,20 +305,6 @@ static void settings_set_defaults(Settings *settings) {
           },
       .text_colors =
           {
-              GColorFromHEX(0x00FF00),
-              GColorFromHEX(0x00AA55),
-              GColorFromHEX(0x0055FF),
-              GColorFromHEX(0xFFFF00),
-              GColorFromHEX(0xFF0000),
-              GColorFromHEX(0xAA00FF),
-              GColorFromHEX(0x00FFFF),
-              GColorFromHEX(0xFFAA00),
-              GColorFromHEX(0xAAAAFF),
-              GColorFromHEX(0x55FF00),
-              GColorFromHEX(0xFF00AA),
-          },
-      .text_on_bar_colors =
-          {
               GColorFromHEX(0xAAFFAA),
               GColorFromHEX(0x55FFFF),
               GColorFromHEX(0x55AAFF),
@@ -341,12 +319,9 @@ static void settings_set_defaults(Settings *settings) {
           }};
 
   // The point of a coloured track: each bar sits on a much darker shade of its
-  // own colour rather than on one shared background. Text defaults to the same
-  // colour on the track and on the filled portion; saved colours still
-  // override the two roles independently.
+  // own colour rather than on one shared background.
   for (int index = 0; index < MAX_SERIES; ++index) {
     settings->track_colors[index] = darker_color(settings->bar_colors[index]);
-    settings->text_colors[index] = settings->text_on_bar_colors[index];
   }
 }
 
@@ -466,9 +441,6 @@ void settings_load(Settings *settings) {
     settings->text_colors[index] =
         color_from_persist(s_text_persist_keys[index],
                            settings->text_colors[index]);
-    settings->text_on_bar_colors[index] =
-        color_from_persist(s_text_on_bar_persist_keys[index],
-                           settings->text_on_bar_colors[index]);
     // Derived from whatever the bar colour turned out to be, so a saved bar
     // colour without a saved track still gets a matching dark shade.
     settings->track_colors[index] =
@@ -513,8 +485,6 @@ void settings_save(const Settings *settings) {
                       settings->track_colors[index].argb);
     persist_write_int(s_text_persist_keys[index],
                       settings->text_colors[index].argb);
-    persist_write_int(s_text_on_bar_persist_keys[index],
-                      settings->text_on_bar_colors[index].argb);
   }
 }
 
@@ -677,18 +647,6 @@ void settings_apply_message(Settings *settings, DictionaryIterator *iterator) {
       MESSAGE_KEY_SETTING_MOON_TEXT_COLOR,
       MESSAGE_KEY_SETTING_STEPS_TEXT_COLOR,
       MESSAGE_KEY_SETTING_CUSTOM_TEXT_COLOR};
-  const uint32_t text_on_bar_keys[MAX_SERIES] = {
-      MESSAGE_KEY_SETTING_HOUR_TEXT_ON_BAR_COLOR,
-      MESSAGE_KEY_SETTING_MINUTE_TEXT_ON_BAR_COLOR,
-      MESSAGE_KEY_SETTING_MONTH_TEXT_ON_BAR_COLOR,
-      MESSAGE_KEY_SETTING_DATE_TEXT_ON_BAR_COLOR,
-      MESSAGE_KEY_SETTING_DAY_TEXT_ON_BAR_COLOR,
-      MESSAGE_KEY_SETTING_SECOND_TEXT_ON_BAR_COLOR,
-      MESSAGE_KEY_SETTING_BATTERY_TEXT_ON_BAR_COLOR,
-      MESSAGE_KEY_SETTING_DAYLIGHT_TEXT_ON_BAR_COLOR,
-      MESSAGE_KEY_SETTING_MOON_TEXT_ON_BAR_COLOR,
-      MESSAGE_KEY_SETTING_STEPS_TEXT_ON_BAR_COLOR,
-      MESSAGE_KEY_SETTING_CUSTOM_TEXT_ON_BAR_COLOR};
 
   for (int index = 0; index < MAX_SERIES; ++index) {
     apply_color_tuple(iterator, bar_keys[index],
@@ -697,7 +655,5 @@ void settings_apply_message(Settings *settings, DictionaryIterator *iterator) {
                       &settings->track_colors[index]);
     apply_color_tuple(iterator, text_keys[index],
                       &settings->text_colors[index]);
-    apply_color_tuple(iterator, text_on_bar_keys[index],
-                      &settings->text_on_bar_colors[index]);
   }
 }

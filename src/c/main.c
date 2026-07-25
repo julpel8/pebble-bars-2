@@ -159,7 +159,7 @@ static void init(void) {
 
   app_message_register_inbox_received(inbox_received_handler);
   app_message_register_inbox_dropped(inbox_dropped_handler);
-  // Every setting arrives in one message, and there are now four colours for
+  // Every setting arrives in one message, and there are three colours for
   // each of eleven bars: 1024 bytes no longer covers it.
   app_message_open(2048, 128);
 }

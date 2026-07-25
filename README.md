@@ -39,10 +39,7 @@ bars.
 - Configurable label placement (horizontal/vertical): at the start, middle, or
   end of either the filled (inside) or unfilled (outside) part of each bar, or
   always fixed at the centre of the complete bar
-- Two text colours per series — each glyph switches from the empty-track colour
-  to the filled-bar colour as the bar reaches it (with an optional black
-  outline for legibility, applied to the whole label on both the bar and its
-  track)
+- One text colour per series, with an optional black outline for legibility
 - Self-contained configuration page: no external website is required
 - Individually configurable bar, track, and text colours per bar, each track
   starting as a much darker shade of its own bar's colour

@@ -5,38 +5,27 @@ var STORAGE_KEY = 'bars2Settings';
 // tables must stay in sync.
 var SERIES = [
   {label: 'Hour', bar: 'SETTING_HOUR_BAR_COLOR',
-   track: 'SETTING_HOUR_TRACK_COLOR', text: 'SETTING_HOUR_TEXT_COLOR',
-   onBar: 'SETTING_HOUR_TEXT_ON_BAR_COLOR'},
+   track: 'SETTING_HOUR_TRACK_COLOR', text: 'SETTING_HOUR_TEXT_COLOR'},
   {label: 'Minute', bar: 'SETTING_MINUTE_BAR_COLOR',
-   track: 'SETTING_MINUTE_TRACK_COLOR', text: 'SETTING_MINUTE_TEXT_COLOR',
-   onBar: 'SETTING_MINUTE_TEXT_ON_BAR_COLOR'},
+   track: 'SETTING_MINUTE_TRACK_COLOR', text: 'SETTING_MINUTE_TEXT_COLOR'},
   {label: 'Month', bar: 'SETTING_MONTH_BAR_COLOR',
-   track: 'SETTING_MONTH_TRACK_COLOR', text: 'SETTING_MONTH_TEXT_COLOR',
-   onBar: 'SETTING_MONTH_TEXT_ON_BAR_COLOR'},
+   track: 'SETTING_MONTH_TRACK_COLOR', text: 'SETTING_MONTH_TEXT_COLOR'},
   {label: 'Date', bar: 'SETTING_DATE_BAR_COLOR',
-   track: 'SETTING_DATE_TRACK_COLOR', text: 'SETTING_DATE_TEXT_COLOR',
-   onBar: 'SETTING_DATE_TEXT_ON_BAR_COLOR'},
+   track: 'SETTING_DATE_TRACK_COLOR', text: 'SETTING_DATE_TEXT_COLOR'},
   {label: 'Weekday', bar: 'SETTING_DAY_BAR_COLOR',
-   track: 'SETTING_DAY_TRACK_COLOR', text: 'SETTING_DAY_TEXT_COLOR',
-   onBar: 'SETTING_DAY_TEXT_ON_BAR_COLOR'},
+   track: 'SETTING_DAY_TRACK_COLOR', text: 'SETTING_DAY_TEXT_COLOR'},
   {label: 'Seconds', bar: 'SETTING_SECOND_BAR_COLOR',
-   track: 'SETTING_SECOND_TRACK_COLOR', text: 'SETTING_SECOND_TEXT_COLOR',
-   onBar: 'SETTING_SECOND_TEXT_ON_BAR_COLOR'},
+   track: 'SETTING_SECOND_TRACK_COLOR', text: 'SETTING_SECOND_TEXT_COLOR'},
   {label: 'Battery', bar: 'SETTING_BATTERY_BAR_COLOR',
-   track: 'SETTING_BATTERY_TRACK_COLOR', text: 'SETTING_BATTERY_TEXT_COLOR',
-   onBar: 'SETTING_BATTERY_TEXT_ON_BAR_COLOR'},
+   track: 'SETTING_BATTERY_TRACK_COLOR', text: 'SETTING_BATTERY_TEXT_COLOR'},
   {label: 'Daylight / night', bar: 'SETTING_DAYLIGHT_BAR_COLOR',
-   track: 'SETTING_DAYLIGHT_TRACK_COLOR', text: 'SETTING_DAYLIGHT_TEXT_COLOR',
-   onBar: 'SETTING_DAYLIGHT_TEXT_ON_BAR_COLOR'},
+   track: 'SETTING_DAYLIGHT_TRACK_COLOR', text: 'SETTING_DAYLIGHT_TEXT_COLOR'},
   {label: 'Moon', bar: 'SETTING_MOON_BAR_COLOR',
-   track: 'SETTING_MOON_TRACK_COLOR', text: 'SETTING_MOON_TEXT_COLOR',
-   onBar: 'SETTING_MOON_TEXT_ON_BAR_COLOR'},
+   track: 'SETTING_MOON_TRACK_COLOR', text: 'SETTING_MOON_TEXT_COLOR'},
   {label: 'Steps', bar: 'SETTING_STEPS_BAR_COLOR',
-   track: 'SETTING_STEPS_TRACK_COLOR', text: 'SETTING_STEPS_TEXT_COLOR',
-   onBar: 'SETTING_STEPS_TEXT_ON_BAR_COLOR'},
+   track: 'SETTING_STEPS_TRACK_COLOR', text: 'SETTING_STEPS_TEXT_COLOR'},
   {label: 'Custom', bar: 'SETTING_CUSTOM_BAR_COLOR',
-   track: 'SETTING_CUSTOM_TRACK_COLOR', text: 'SETTING_CUSTOM_TEXT_COLOR',
-   onBar: 'SETTING_CUSTOM_TEXT_ON_BAR_COLOR'}
+   track: 'SETTING_CUSTOM_TRACK_COLOR', text: 'SETTING_CUSTOM_TEXT_COLOR'}
 ];
 
 // Ported from date_part_order in src/c/languages.c (W weekday, D date,
@@ -100,46 +89,32 @@ var DEFAULTS = {
   SETTING_LOCATION_VALID: 0,
   SETTING_BACKGROUND_COLOR: '000000',
   SETTING_HOUR_BAR_COLOR: '00FF00',
-  SETTING_HOUR_TEXT_COLOR: '00FF00',
+  SETTING_HOUR_TEXT_COLOR: 'AAFFAA',
   SETTING_MINUTE_BAR_COLOR: '00AA55',
-  SETTING_MINUTE_TEXT_COLOR: '00AA55',
+  SETTING_MINUTE_TEXT_COLOR: '55FFFF',
   SETTING_MONTH_BAR_COLOR: '0055FF',
-  SETTING_MONTH_TEXT_COLOR: '0055FF',
+  SETTING_MONTH_TEXT_COLOR: '55AAFF',
   SETTING_DATE_BAR_COLOR: 'FFFF00',
-  SETTING_DATE_TEXT_COLOR: 'FFFF00',
+  SETTING_DATE_TEXT_COLOR: '555500',
   SETTING_DAY_BAR_COLOR: 'FF0000',
-  SETTING_DAY_TEXT_COLOR: 'FF0000',
+  SETTING_DAY_TEXT_COLOR: 'FFAAAA',
   SETTING_SECOND_BAR_COLOR: 'AA00FF',
-  SETTING_SECOND_TEXT_COLOR: 'AA00FF',
+  SETTING_SECOND_TEXT_COLOR: 'FFAAFF',
   SETTING_BATTERY_BAR_COLOR: '00FFFF',
-  SETTING_BATTERY_TEXT_COLOR: '00FFFF',
+  SETTING_BATTERY_TEXT_COLOR: 'FFFFFF',
   SETTING_DAYLIGHT_BAR_COLOR: 'FFAA00',
-  SETTING_DAYLIGHT_TEXT_COLOR: 'FFAA00',
+  SETTING_DAYLIGHT_TEXT_COLOR: '552A00',
   SETTING_MOON_BAR_COLOR: 'AAAAFF',
-  SETTING_MOON_TEXT_COLOR: 'AAAAFF',
+  SETTING_MOON_TEXT_COLOR: '000055',
   SETTING_STEPS_BAR_COLOR: '55FF00',
-  SETTING_STEPS_TEXT_COLOR: '55FF00',
+  SETTING_STEPS_TEXT_COLOR: '005500',
   SETTING_CUSTOM_BAR_COLOR: 'FF00AA',
-  SETTING_CUSTOM_TEXT_COLOR: 'FF00AA',
-  SETTING_HOUR_TEXT_ON_BAR_COLOR: 'AAFFAA',
-  SETTING_MINUTE_TEXT_ON_BAR_COLOR: '55FFFF',
-  SETTING_MONTH_TEXT_ON_BAR_COLOR: '55AAFF',
-  SETTING_DATE_TEXT_ON_BAR_COLOR: '555500',
-  SETTING_DAY_TEXT_ON_BAR_COLOR: 'FFAAAA',
-  SETTING_SECOND_TEXT_ON_BAR_COLOR: 'FFAAFF',
-  SETTING_BATTERY_TEXT_ON_BAR_COLOR: 'FFFFFF',
-  SETTING_DAYLIGHT_TEXT_ON_BAR_COLOR: '552A00',
-  SETTING_MOON_TEXT_ON_BAR_COLOR: '000055',
-  SETTING_STEPS_TEXT_ON_BAR_COLOR: '005500',
-  SETTING_CUSTOM_TEXT_ON_BAR_COLOR: 'FFAAFF'
+  SETTING_CUSTOM_TEXT_COLOR: 'FFAAFF'
 };
 
-// Every bar starts on a much darker shade of its own colour. Its text also
-// starts with the same colour on the track and on the filled portion. Both are
-// derived so the paired defaults never drift apart.
+// Every bar starts on a much darker shade of its own colour.
 SERIES.forEach(function (series) {
   DEFAULTS[series.track] = darkerHex(DEFAULTS[series.bar]);
-  DEFAULTS[series.text] = DEFAULTS[series.onBar];
 });
 
 // Kept in phone storage but never sent: the watch has no use for it, and an
@@ -236,6 +211,15 @@ function mergedSettings(saved) {
     if (DEFAULTS.hasOwnProperty(key)) {
       result[key] = Array.isArray(source[key]) ? source[key].slice()
                                                : source[key];
+    }
+  });
+  // The former filled-bar text colour is now the series' only text colour.
+  // Prefer it once when upgrading a configuration that still has both roles.
+  SERIES.forEach(function (series) {
+    var legacyKey = series.text.replace('_TEXT_COLOR',
+                                        '_TEXT_ON_BAR_COLOR');
+    if (source.hasOwnProperty(legacyKey)) {
+      result[series.text] = source[legacyKey];
     }
   });
 
@@ -475,9 +459,7 @@ function configurationHtml(settings) {
     '<option value="6">Always — bar middle</option>',
     '</select></label>',
     '<p class="hint">Placement applies to horizontal and vertical styles. '
-      + 'Text uses the “on track” colour beside the fill and the “on bar” '
-      + 'colour over the fill. “Always” fixes every label at the centre of '
-      + 'its complete bar.</p>',
+      + '“Always” fixes every label at the centre of its complete bar.</p>',
     '<label class="row"><span>Black text outline</span>',
     '<input type="checkbox" data-key="SETTING_TEXT_OUTLINE"></label>',
     '<p class="hint">Outlines the whole label, over the filled bar and over '
@@ -583,7 +565,7 @@ function configurationHtml(settings) {
     '<section><h2>Bars</h2>',
     '<div id="list"></div>',
     '<p class="hint">Drag ≡ to reorder the bars, untick one to hide it, and '
-      + 'tap a row to configure its four colours. At least one bar stays on.</p>',
+      + 'tap a row to configure its three colours. At least one bar stays on.</p>',
     '</section>',
     '</main>',
     '<div class="actions"><button id="reset" type="button">Reset</button>',
@@ -670,8 +652,7 @@ function configurationHtml(settings) {
     'if(dots[i].getAttribute("data-dot-key")===key){',
     'dots[i].style.background="#"+value}}}',
     // The bar list: one row per series, in display order.
-    'var COLOR_ROLES=[["bar","Bar"],["track","Track"],',
-    '["text","Text (on track)"],["onBar","Text (on bar)"]];',
+    'var COLOR_ROLES=[["bar","Bar"],["track","Track"],["text","Text"]];',
     'function items(){return Array.prototype.slice.call(',
     'document.querySelectorAll("#list .si"))}',
     'function shownCount(){var n=0;items().forEach(function(el){',

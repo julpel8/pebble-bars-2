@@ -81,8 +81,7 @@ static void initialize_series(Series *series, const Settings *settings,
       .maximum = maximum,
       .bar_color = settings->bar_colors[id],
       .track_color = settings->track_colors[id],
-      .text_color = settings->text_colors[id],
-      .text_on_bar_color = settings->text_on_bar_colors[id]};
+      .text_color = settings->text_colors[id]};
   snprintf(series->label, sizeof(series->label), "%s", label);
   snprintf(series->measure, sizeof(series->measure), "%s", measure);
 }
@@ -317,9 +316,6 @@ static void initialize_astro(Series *series, const Settings *settings,
     GColor color = series->bar_color;
     series->bar_color = series->track_color;
     series->track_color = color;
-    color = series->text_on_bar_color;
-    series->text_on_bar_color = series->text_color;
-    series->text_color = color;
   }
 }
 
