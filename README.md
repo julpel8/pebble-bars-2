@@ -52,6 +52,44 @@ pebble build
 
 The installable bundle is written to `build/pebble-bars-2.pbw`.
 
+## Screenshots
+
+The checked-in Emery gallery is generated from deterministic, multilingual
+presets. Each preset fixes the watch time, language, visible bars, layout, and
+other visual settings before taking its screenshot.
+
+Generate the complete gallery:
+
+```sh
+./scripts/generate-screenshots.py
+```
+
+List the presets, or generate only selected ones:
+
+```sh
+./scripts/generate-screenshots.py --list
+./scripts/generate-screenshots.py --preset polar-rectangular
+./scripts/generate-screenshots.py \
+  --preset horizontal-english-full-names \
+  --preset horizontal-astro
+```
+
+The script requires `pebble`, its configured SDK, and Node.js. It temporarily
+builds a screenshot-only fixture that accepts deterministic time and step
+values, installs it through the Pebble CLI, and restores a normal production
+build before exiting. It uses the Python environment bundled with the CLI and
+normalizes the emulator backlight before applying Pebble's display colour
+correction. It only replaces the selected PNGs after validating all of them as
+8-bit RGBA images with 200 × 228 dimensions and corrected palette colours.
+
+Presets live in `scripts/screenshot-presets.json`. A preset supplies a unique
+`name`, an output `filename`, the `platform`, a UTC `time`, a language `id` and
+`name`, optional `battery_percent`, and a `settings` object containing
+overrides using the `SETTING_*` names from `package.json`. The manifest is
+validated before the emulator starts: the gallery must cover all styles, all
+linear text placements, every round-polar fill mode, all eleven series, and a
+different supported language for every image.
+
 ## Origin
 
 This is a clean-room implementation based on the public screenshots and

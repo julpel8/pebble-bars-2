@@ -1,0 +1,301 @@
+{
+  "version": 1,
+  "presets": [
+    {
+      "name": "horizontal-outside-end",
+      "description": "Horizontal bars with labels at the end of the unfilled area",
+      "filename": "emery_horizontal-outside-end.png",
+      "platform": "emery",
+      "language": {
+        "id": 1,
+        "name": "French"
+      },
+      "time": "2026-02-09T06:24:00Z",
+      "settings": {
+        "SETTING_STYLE": 0,
+        "SETTING_TEXT_PLACEMENT": 0,
+        "SETTING_CLOCK_FORMAT": 1,
+        "SETTING_SMOOTH_PROGRESS": 0,
+        "SETTING_SERIES_VISIBLE": [1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0]
+      }
+    },
+    {
+      "name": "horizontal-inverted-outside-edge",
+      "description": "Inverted horizontal bars with labels at the outer edge",
+      "filename": "emery_horizontal-inverted-outside-edge.png",
+      "platform": "emery",
+      "language": {
+        "id": 2,
+        "name": "German"
+      },
+      "time": "2026-05-23T19:37:00Z",
+      "settings": {
+        "SETTING_STYLE": 1,
+        "SETTING_TEXT_PLACEMENT": 0,
+        "SETTING_CLOCK_FORMAT": 1,
+        "SETTING_SMOOTH_PROGRESS": 0,
+        "SETTING_SERIES_VISIBLE": [1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0]
+      }
+    },
+    {
+      "name": "vertical-inside-middle",
+      "description": "Vertical bars with labels centred inside their fill",
+      "filename": "emery_vertical-inside-middle.png",
+      "platform": "emery",
+      "language": {
+        "id": 3,
+        "name": "Spanish"
+      },
+      "time": "2026-05-23T19:37:00Z",
+      "settings": {
+        "SETTING_STYLE": 2,
+        "SETTING_TEXT_PLACEMENT": 3,
+        "SETTING_CLOCK_FORMAT": 1,
+        "SETTING_SMOOTH_PROGRESS": 0,
+        "SETTING_SERIES_VISIBLE": [1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0]
+      }
+    },
+    {
+      "name": "vertical-inverted-inside-end",
+      "description": "Inverted vertical bars with labels at the end of the fill",
+      "filename": "emery_vertical-inverted-inside-end.png",
+      "platform": "emery",
+      "language": {
+        "id": 4,
+        "name": "Italian"
+      },
+      "time": "2026-10-28T13:51:00Z",
+      "settings": {
+        "SETTING_STYLE": 3,
+        "SETTING_TEXT_PLACEMENT": 4,
+        "SETTING_CLOCK_FORMAT": 1,
+        "SETTING_SMOOTH_PROGRESS": 0,
+        "SETTING_SERIES_VISIBLE": [1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0]
+      }
+    },
+    {
+      "name": "polar-rectangular",
+      "description": "Clockwise rectangular polar rings",
+      "filename": "emery_polar-rectangular.png",
+      "platform": "emery",
+      "language": {
+        "id": 5,
+        "name": "Dutch"
+      },
+      "time": "2026-03-17T10:26:00Z",
+      "settings": {
+        "SETTING_STYLE": 4,
+        "SETTING_CLOCK_FORMAT": 1,
+        "SETTING_SMOOTH_PROGRESS": 1,
+        "SETTING_SERIES_VISIBLE": [1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0]
+      }
+    },
+    {
+      "name": "polar-rectangular-inverted",
+      "description": "Anticlockwise rectangular polar rings",
+      "filename": "emery_polar-rectangular-inverted.png",
+      "platform": "emery",
+      "language": {
+        "id": 6,
+        "name": "Turkish"
+      },
+      "time": "2026-04-22T16:41:00Z",
+      "settings": {
+        "SETTING_STYLE": 5,
+        "SETTING_CLOCK_FORMAT": 1,
+        "SETTING_SMOOTH_PROGRESS": 0,
+        "SETTING_SERIES_VISIBLE": [1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0]
+      }
+    },
+    {
+      "name": "polar-round-none",
+      "description": "Clockwise round polar rings without extensions",
+      "filename": "emery_polar-round-none.png",
+      "platform": "emery",
+      "language": {
+        "id": 7,
+        "name": "Czech"
+      },
+      "time": "2026-06-11T07:52:00Z",
+      "settings": {
+        "SETTING_STYLE": 6,
+        "SETTING_ROUND_POLAR_FILL": 0,
+        "SETTING_CLOCK_FORMAT": 1,
+        "SETTING_SMOOTH_PROGRESS": 1,
+        "SETTING_SERIES_VISIBLE": [1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0]
+      }
+    },
+    {
+      "name": "polar-round-inverted-both",
+      "description": "Anticlockwise round polar rings extended outside and inside",
+      "filename": "emery_polar-round-inverted-both.png",
+      "platform": "emery",
+      "language": {
+        "id": 8,
+        "name": "Portuguese"
+      },
+      "time": "2026-07-19T22:13:00Z",
+      "settings": {
+        "SETTING_STYLE": 7,
+        "SETTING_ROUND_POLAR_FILL": 3,
+        "SETTING_CLOCK_FORMAT": 1,
+        "SETTING_SMOOTH_PROGRESS": 0,
+        "SETTING_SERIES_VISIBLE": [1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0]
+      }
+    },
+    {
+      "name": "polar-round-outside",
+      "description": "Round polar rings extended through the outside",
+      "filename": "emery_polar-round-outside.png",
+      "platform": "emery",
+      "language": {
+        "id": 9,
+        "name": "Greek"
+      },
+      "time": "2026-08-24T14:33:00Z",
+      "settings": {
+        "SETTING_STYLE": 6,
+        "SETTING_ROUND_POLAR_FILL": 1,
+        "SETTING_CLOCK_FORMAT": 1,
+        "SETTING_SEAMLESS_BARS": 0,
+        "SETTING_TEXT_OUTLINE": 1,
+        "SETTING_SMOOTH_PROGRESS": 1,
+        "SETTING_SERIES_VISIBLE": [1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0]
+      }
+    },
+    {
+      "name": "polar-round-centre",
+      "description": "Round polar rings extended through the centre",
+      "filename": "emery_polar-round-centre.png",
+      "platform": "emery",
+      "language": {
+        "id": 10,
+        "name": "Swedish"
+      },
+      "time": "2026-11-06T09:47:00Z",
+      "settings": {
+        "SETTING_STYLE": 6,
+        "SETTING_ROUND_POLAR_FILL": 2,
+        "SETTING_CLOCK_FORMAT": 1,
+        "SETTING_SMOOTH_PROGRESS": 0,
+        "SETTING_SERIES_VISIBLE": [1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0]
+      }
+    },
+    {
+      "name": "horizontal-english-full-names",
+      "description": "English full date names with 12-hour clock and outlined gapped bars",
+      "filename": "emery_horizontal-english-full-names.png",
+      "platform": "emery",
+      "language": {
+        "id": 0,
+        "name": "English"
+      },
+      "time": "2026-09-23T20:42:00Z",
+      "settings": {
+        "SETTING_STYLE": 0,
+        "SETTING_TEXT_PLACEMENT": 1,
+        "SETTING_CLOCK_FORMAT": 2,
+        "SETTING_LEADING_ZERO": 0,
+        "SETTING_SMOOTH_PROGRESS": 1,
+        "SETTING_FULL_DATE_NAMES": 1,
+        "SETTING_WEEK_STARTS_SUNDAY": 1,
+        "SETTING_SEAMLESS_BARS": 0,
+        "SETTING_TEXT_OUTLINE": 1,
+        "SETTING_SERIES_VISIBLE": [1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0]
+      }
+    },
+    {
+      "name": "horizontal-merged-clock",
+      "description": "Merged HH:MM bar, fixed-centre labels and a custom palette",
+      "filename": "emery_horizontal-merged-clock.png",
+      "platform": "emery",
+      "language": {
+        "id": 11,
+        "name": "Polish"
+      },
+      "time": "2026-12-08T21:08:00Z",
+      "settings": {
+        "SETTING_STYLE": 0,
+        "SETTING_TEXT_PLACEMENT": 6,
+        "SETTING_CLOCK_FORMAT": 1,
+        "SETTING_MERGE_HOUR_MINUTE": 1,
+        "SETTING_BACKGROUND_COLOR": "000055",
+        "SETTING_HOUR_BAR_COLOR": "FFAA00",
+        "SETTING_HOUR_TRACK_COLOR": "550000",
+        "SETTING_MONTH_BAR_COLOR": "AA00FF",
+        "SETTING_MONTH_TRACK_COLOR": "550055",
+        "SETTING_DATE_BAR_COLOR": "00FFFF",
+        "SETTING_DATE_TRACK_COLOR": "005555",
+        "SETTING_DAY_BAR_COLOR": "55FF00",
+        "SETTING_DAY_TRACK_COLOR": "005500",
+        "SETTING_SERIES_VISIBLE": [1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0]
+      }
+    },
+    {
+      "name": "vertical-secondary-bars",
+      "description": "Seconds, battery and steps alongside localized time bars",
+      "filename": "emery_vertical-secondary-bars.png",
+      "platform": "emery",
+      "language": {
+        "id": 12,
+        "name": "Slovak"
+      },
+      "time": "2026-01-16T18:42:42Z",
+      "battery_percent": 73,
+      "settings": {
+        "SETTING_STYLE": 2,
+        "SETTING_TEXT_PLACEMENT": 5,
+        "SETTING_CLOCK_FORMAT": 1,
+        "SETTING_SMOOTH_PROGRESS": 0,
+        "SETTING_SEAMLESS_BARS": 0,
+        "SETTING_SERIES_ORDER": [0, 1, 5, 4, 2, 6, 9, 3, 7, 8, 10],
+        "SETTING_SERIES_VISIBLE": [1, 1, 1, 0, 1, 1, 1, 0, 0, 1, 0]
+      }
+    },
+    {
+      "name": "horizontal-astro",
+      "description": "Daylight and moon spans calculated for Paris",
+      "filename": "emery_horizontal-astro.png",
+      "platform": "emery",
+      "language": {
+        "id": 13,
+        "name": "Vietnamese"
+      },
+      "time": "2026-06-21T20:00:00Z",
+      "settings": {
+        "SETTING_STYLE": 0,
+        "SETTING_TEXT_PLACEMENT": 2,
+        "SETTING_CLOCK_FORMAT": 1,
+        "SETTING_SMOOTH_PROGRESS": 1,
+        "SETTING_LATITUDE": 48856600,
+        "SETTING_LONGITUDE": 2352200,
+        "SETTING_LOCATION_VALID": 1,
+        "SETTING_SERIES_ORDER": [0, 1, 4, 2, 7, 8, 5, 3, 6, 9, 10],
+        "SETTING_SERIES_VISIBLE": [1, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0]
+      }
+    },
+    {
+      "name": "horizontal-countdown",
+      "description": "An English year-long countdown with labels fixed at each bar's centre",
+      "filename": "emery_horizontal-countdown.png",
+      "platform": "emery",
+      "language": {
+        "id": 37,
+        "name": "English (UK)"
+      },
+      "time": "2026-05-23T11:30:00Z",
+      "settings": {
+        "SETTING_STYLE": 0,
+        "SETTING_TEXT_PLACEMENT": 6,
+        "SETTING_CLOCK_FORMAT": 1,
+        "SETTING_SMOOTH_PROGRESS": 0,
+        "SETTING_TEXT_OUTLINE": 1,
+        "SETTING_CUSTOM_LABEL": "{p}%",
+        "SETTING_CUSTOM_START_DAY": 20454,
+        "SETTING_CUSTOM_TARGET_DAY": 20818,
+        "SETTING_SERIES_ORDER": [0, 1, 4, 2, 10, 5, 3, 6, 7, 8, 9],
+        "SETTING_SERIES_VISIBLE": [1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 1]
+      }
+    }
+  ]
+}

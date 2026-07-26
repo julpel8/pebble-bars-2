@@ -9,6 +9,7 @@ typedef struct {
   int top_offset;
 } SmoothFontSpec;
 
+void renderer_text_deinit(void);
 int smooth_letterwise_width(const char *text, GFont font, int line_height);
 int utf8_glyph_count(const char *text);
 void copy_utf8_glyphs(const char *source, char *destination,

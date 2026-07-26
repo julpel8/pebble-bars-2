@@ -13,6 +13,16 @@
 #define SUN_EVENT_MEASURE "SUNRISE 00:00"
 #define MOON_EVENT_MEASURE "MOONRISE 00:00"
 
+#ifdef BARS_SCREENSHOT_BUILD
+static time_t s_screenshot_time;
+static int s_screenshot_steps = -1;
+
+void series_set_screenshot_state(time_t now, int steps) {
+  s_screenshot_time = now;
+  s_screenshot_steps = steps;
+}
+#endif
+
 static bool uses_24_hour_clock(const Settings *settings) {
   if (settings->clock_format == CLOCK_FORMAT_24H) {
     return true;
@@ -65,9 +75,18 @@ static int display_hour_for(const Settings *settings,
   return display_hour;
 }
 
+static struct tm display_time_for(time_t timestamp) {
+#ifdef BARS_SCREENSHOT_BUILD
+  if (s_screenshot_time > 0) {
+    return *gmtime(&timestamp);
+  }
+#endif
+  return *localtime(&timestamp);
+}
+
 static void format_local_time(const Settings *settings, time_t utc, char *out,
                               size_t out_size) {
-  struct tm local = *localtime(&utc);
+  struct tm local = display_time_for(utc);
   snprintf(out, out_size, "%02d:%02d", display_hour_for(settings, &local),
            local.tm_min);
 }
@@ -156,6 +175,11 @@ static bool s_steps_known;
 void series_invalidate_steps(void) { s_steps_known = false; }
 
 static int steps_today(void) {
+#ifdef BARS_SCREENSHOT_BUILD
+  if (s_screenshot_steps >= 0) {
+    return s_screenshot_steps;
+  }
+#endif
   if (s_steps_known) {
     return s_steps;
   }
@@ -383,7 +407,12 @@ static void initialize_date_part(Series *series, const Settings *settings,
 
 int series_build(Series output[MAX_SERIES], const Settings *settings) {
   time_t now = time(NULL);
-  struct tm time_info = *localtime(&now);
+#ifdef BARS_SCREENSHOT_BUILD
+  if (s_screenshot_time > 0) {
+    now = s_screenshot_time;
+  }
+#endif
+  struct tm time_info = display_time_for(now);
   uint8_t language =
       settings->language < LANGUAGE_COUNT ? settings->language : LANGUAGE_EN;
   bool use_full_date_names =

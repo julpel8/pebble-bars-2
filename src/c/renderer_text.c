@@ -12,6 +12,20 @@ typedef struct {
   uint8_t top_offset;
 } SmoothFontCandidate;
 
+static GFont s_greek_font;
+
+static bool contains_greek_uppercase(const char *text) {
+  for (size_t index = 0; text[index] != '\0'; ++index) {
+    unsigned char first = (unsigned char)text[index];
+    unsigned char second = (unsigned char)text[index + 1];
+    if (first == 0xCE && second >= 0x91 && second <= 0xA9 &&
+        second != 0xA2) {
+      return true;
+    }
+  }
+  return false;
+}
+
 static GSize smooth_text_size(const char *text, GFont font, int max_width,
                               int max_height) {
   return graphics_text_layout_get_content_size(
@@ -119,6 +133,20 @@ static const SmoothFontCandidate s_leco_fonts[] = {
 
 SmoothFontSpec smooth_font_for_series(const Series *series, int max_width,
                                       int max_visible_height) {
+  // LECO is the face used by Bars, but its built-in glyph set is Latin-only.
+  // The bundled pixel face keeps Greek labels legible and visually consistent.
+  if (contains_greek_uppercase(series->label)) {
+    if (!s_greek_font) {
+      s_greek_font =
+          fonts_load_custom_font(resource_get_handle(RESOURCE_ID_GREEK_15));
+    }
+    return (SmoothFontSpec){
+        .font = s_greek_font,
+        .line_height = 15,
+        .visible_height = 7,
+        .top_offset = 4};
+  }
+
   const SmoothFontCandidate *fonts = s_leco_fonts;
   int font_count = BARS_ARRAY_LENGTH(s_leco_fonts);
 
@@ -144,6 +172,13 @@ SmoothFontSpec smooth_font_for_series(const Series *series, int max_width,
     }
   }
   return fallback;
+}
+
+void renderer_text_deinit(void) {
+  if (s_greek_font) {
+    fonts_unload_custom_font(s_greek_font);
+    s_greek_font = NULL;
+  }
 }
 
 static void draw_smooth_text(GContext *ctx, const char *text, GFont font,

@@ -2,7 +2,7 @@
   "name": "pebble-bars-2",
   "author": "julien",
   "description": "A native Pebble Time 2 clean-room recreation of ELEQUENT's Bars watchface.",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "license": "MIT",
   "private": true,
   "keywords": [
@@ -95,6 +95,11 @@
           "menuIcon": true,
           "name": "MENU_ICON",
           "type": "bitmap"
+        },
+        {
+          "file": "fonts/bars-greek-15.bdf",
+          "name": "GREEK_15",
+          "type": "font"
         }
       ]
     }
