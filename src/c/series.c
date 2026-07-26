@@ -13,6 +13,16 @@
 #define SUN_EVENT_MEASURE "SUNRISE 00:00"
 #define MOON_EVENT_MEASURE "MOONRISE 00:00"
 
+#ifdef BARS_SCREENSHOT_BUILD
+static time_t s_screenshot_time;
+static int s_screenshot_steps = -1;
+
+void series_set_screenshot_state(time_t now, int steps) {
+  s_screenshot_time = now;
+  s_screenshot_steps = steps;
+}
+#endif
+
 static bool uses_24_hour_clock(const Settings *settings) {
   if (settings->clock_format == CLOCK_FORMAT_24H) {
     return true;
@@ -65,9 +75,18 @@ static int display_hour_for(const Settings *settings,
   return display_hour;
 }
 
+static struct tm display_time_for(time_t timestamp) {
+#ifdef BARS_SCREENSHOT_BUILD
+  if (s_screenshot_time > 0) {
+    return *gmtime(&timestamp);
+  }
+#endif
+  return *localtime(&timestamp);
+}
+
 static void format_local_time(const Settings *settings, time_t utc, char *out,
                               size_t out_size) {
-  struct tm local = *localtime(&utc);
+  struct tm local = display_time_for(utc);
   snprintf(out, out_size, "%02d:%02d", display_hour_for(settings, &local),
            local.tm_min);
 }
@@ -81,8 +100,7 @@ static void initialize_series(Series *series, const Settings *settings,
       .maximum = maximum,
       .bar_color = settings->bar_colors[id],
       .track_color = settings->track_colors[id],
-      .text_color = settings->text_colors[id],
-      .text_on_bar_color = settings->text_on_bar_colors[id]};
+      .text_color = settings->text_colors[id]};
   snprintf(series->label, sizeof(series->label), "%s", label);
   snprintf(series->measure, sizeof(series->measure), "%s", measure);
 }
@@ -157,6 +175,11 @@ static bool s_steps_known;
 void series_invalidate_steps(void) { s_steps_known = false; }
 
 static int steps_today(void) {
+#ifdef BARS_SCREENSHOT_BUILD
+  if (s_screenshot_steps >= 0) {
+    return s_screenshot_steps;
+  }
+#endif
   if (s_steps_known) {
     return s_steps;
   }
@@ -165,7 +188,8 @@ static int steps_today(void) {
   HealthServiceAccessibilityMask access = health_service_metric_accessible(
       HealthMetricStepCount, time_start_of_today(), time(NULL));
   if (access & HealthServiceAccessibilityMaskAvailable) {
-    s_steps = (int)health_service_sum_today(HealthMetricStepCount);
+    HealthValue value = health_service_sum_today(HealthMetricStepCount);
+    s_steps = value > 0 ? (int)value : 0;
   }
 #endif
   s_steps_known = true;
@@ -177,8 +201,10 @@ static void initialize_steps(Series *series, const Settings *settings) {
   int steps = steps_today();
   int goal = settings->step_goal > 0 ? settings->step_goal : DEFAULT_STEP_GOAL;
   snprintf(label, sizeof(label), "%d", steps);
-  initialize_series(series, settings, SERIES_STEPS, steps, goal, label,
-                    "00000");
+  // Step counts vary from one to six digits. Measuring the actual label keeps
+  // it readable in both rows and narrow columns instead of always reserving
+  // the width of a five-digit placeholder.
+  initialize_series(series, settings, SERIES_STEPS, steps, goal, label, label);
 }
 
 // Fills `out` from the template, replacing {d} with the days left, {t} with the
@@ -317,9 +343,6 @@ static void initialize_astro(Series *series, const Settings *settings,
     GColor color = series->bar_color;
     series->bar_color = series->track_color;
     series->track_color = color;
-    color = series->text_on_bar_color;
-    series->text_on_bar_color = series->text_color;
-    series->text_color = color;
   }
 }
 
@@ -384,7 +407,12 @@ static void initialize_date_part(Series *series, const Settings *settings,
 
 int series_build(Series output[MAX_SERIES], const Settings *settings) {
   time_t now = time(NULL);
-  struct tm time_info = *localtime(&now);
+#ifdef BARS_SCREENSHOT_BUILD
+  if (s_screenshot_time > 0) {
+    now = s_screenshot_time;
+  }
+#endif
+  struct tm time_info = display_time_for(now);
   uint8_t language =
       settings->language < LANGUAGE_COUNT ? settings->language : LANGUAGE_EN;
   bool use_full_date_names =

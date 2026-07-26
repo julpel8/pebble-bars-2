@@ -1,5 +1,16 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- Each series now has one text colour, used over both the track and the filled
+  bar.
+- The black text outline now covers the whole label instead of only the glyphs
+  standing over the filled bar, so a label stays outlined across the bar and
+  its track. The outline is drawn as its own pass over the label, so a
+  neighbouring glyph's outline no longer lands on top of an already drawn one.
+
 ## [0.5.0] - 2026-07-25
 
 ### Added

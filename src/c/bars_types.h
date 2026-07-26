@@ -112,7 +112,6 @@ typedef struct {
   // on a darker shade of its own colour.
   GColor track_colors[MAX_SERIES];
   GColor text_colors[MAX_SERIES];
-  GColor text_on_bar_colors[MAX_SERIES];
 } Settings;
 
 typedef struct {
@@ -127,5 +126,4 @@ typedef struct {
   GColor bar_color;
   GColor track_color;
   GColor text_color;
-  GColor text_on_bar_color;
 } Series;

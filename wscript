@@ -24,6 +24,13 @@ def build(ctx):
     cached_env = ctx.env
     for platform in ctx.env.TARGET_PLATFORMS:
         ctx.env = ctx.all_envs[platform]
+        if os.environ.get('BARS_SCREENSHOT_BUILD') == '1':
+            ctx.env.append_value('DEFINES', 'BARS_SCREENSHOT_BUILD')
+        else:
+            ctx.env.DEFINES = [
+                define for define in ctx.env.DEFINES
+                if define != 'BARS_SCREENSHOT_BUILD'
+            ]
         ctx.set_group(ctx.env.PLATFORM_NAME)
         app_elf = '{}/pebble-app.elf'.format(ctx.env.BUILD_DIR)
         # The native modules apply settings sent by the self-contained

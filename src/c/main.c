@@ -1,11 +1,17 @@
 #include <pebble.h>
 
 #include "renderer.h"
+#include "renderer_text.h"
 #include "series.h"
 #include "settings.h"
 
 #define ANIMATION_INTERVAL_MS 33
 #define ANIMATION_STEP 70
+
+#ifdef BARS_SCREENSHOT_BUILD
+#define SCREENSHOT_TIME_KEY 20000
+#define SCREENSHOT_STEPS_KEY 20001
+#endif
 
 static Window *s_window;
 static Layer *s_canvas_layer;
@@ -89,7 +95,8 @@ static void battery_handler(BatteryChargeState state) {
 
 #if defined(PBL_HEALTH)
 static void health_handler(HealthEventType event, void *context) {
-  if (event != HealthEventMovementUpdate) {
+  if (event != HealthEventMovementUpdate &&
+      event != HealthEventSignificantUpdate) {
     return;
   }
   series_invalidate_steps();
@@ -111,6 +118,14 @@ static void unobstructed_did_change_handler(void *context) {
 static void inbox_received_handler(DictionaryIterator *iterator,
                                    void *context) {
   settings_apply_message(&s_settings, iterator);
+#ifdef BARS_SCREENSHOT_BUILD
+  Tuple *time_tuple = dict_find(iterator, SCREENSHOT_TIME_KEY);
+  Tuple *steps_tuple = dict_find(iterator, SCREENSHOT_STEPS_KEY);
+  if (time_tuple && steps_tuple) {
+    series_set_screenshot_state((time_t)time_tuple->value->uint32,
+                                steps_tuple->value->int32);
+  }
+#endif
   settings_save(&s_settings);
   update_tick_subscription();
   window_set_background_color(s_window, s_settings.background_color);
@@ -159,9 +174,8 @@ static void init(void) {
 
   app_message_register_inbox_received(inbox_received_handler);
   app_message_register_inbox_dropped(inbox_dropped_handler);
-  // Every setting arrives in one message, and there are now four colours for
-  // each of eleven bars: 1024 bytes no longer covers it.
-  app_message_open(2048, 128);
+  // The complete settings dictionary stays below 700 bytes.
+  app_message_open(1024, 128);
 }
 
 static void deinit(void) {
@@ -176,6 +190,7 @@ static void deinit(void) {
 #endif
   app_message_deregister_callbacks();
   window_destroy(s_window);
+  renderer_text_deinit();
 }
 
 int main(void) {
